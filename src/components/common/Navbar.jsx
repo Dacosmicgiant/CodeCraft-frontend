@@ -42,7 +42,7 @@ const Navbar = () => {
           <div className="flex items-center">
             <Link to="/" className="flex items-center gap-2">
               <BookOpen className="h-8 w-8 text-white" />
-              <span className="text-xl font-bold text-white">CodeLearn</span>
+              <span className="text-xl font-bold text-white">Shubhali's CodeCraft</span>
             </Link>
           </div>
           
@@ -67,12 +67,6 @@ const Navbar = () => {
             <div className="flex items-center space-x-4">
               <NavLink to="/tutorials" active={isActive('/tutorials')}>
                 Tutorials
-              </NavLink>
-              <NavLink to="/exercises" active={isActive('/exercises')}>
-                Exercises
-              </NavLink>
-              <NavLink to="/playground" active={isActive('/playground')}>
-                Playground
               </NavLink>
               
               {user ? (
@@ -127,12 +121,6 @@ const Navbar = () => {
           <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
             <MobileNavLink to="/tutorials" active={isActive('/tutorials')}>
               Tutorials
-            </MobileNavLink>
-            <MobileNavLink to="/exercises" active={isActive('/exercises')}>
-              Exercises
-            </MobileNavLink>
-            <MobileNavLink to="/playground" active={isActive('/playground')}>
-              Playground
             </MobileNavLink>
             
             {/* Search Bar - Mobile */}

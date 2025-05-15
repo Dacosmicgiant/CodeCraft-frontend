@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, BookOpen, Code, CheckCircle, Copy, ExternalLink } from 'lucide-react';
+import { ArrowLeft, ArrowRight, BookOpen, CheckCircle, Copy } from 'lucide-react';
 import { useTutorial } from '../hooks/useTutorial';
 
 const TutorialPage = () => {
@@ -204,25 +204,7 @@ const TutorialPage = () => {
       </div>
       
       {/* Related resources */}
-      <div className="max-w-4xl mx-auto mt-8 grid md:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow-sm border hover:shadow-md transition-shadow">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 bg-blue-100 rounded-md">
-              <Code size={24} className="text-blue-600" />
-            </div>
-            <h3 className="text-lg font-bold">Try it yourself</h3>
-          </div>
-          <p className="text-gray-600 mb-4">
-            Practice what you've learned in our interactive code playground.
-          </p>
-          <Link 
-            to="/playground"
-            className="inline-flex items-center text-blue-600 hover:text-blue-700 font-medium"
-          >
-            Open playground <ExternalLink size={14} className="ml-1" />
-          </Link>
-        </div>
-        
+      <div className="max-w-4xl mx-auto mt-8">
         <div className="bg-white p-6 rounded-lg shadow-sm border hover:shadow-md transition-shadow">
           <div className="flex items-center gap-3 mb-4">
             <div className="p-2 bg-purple-100 rounded-md">
@@ -246,7 +228,7 @@ const TutorialPage = () => {
             to="/tutorials"
             className="inline-flex items-center text-purple-600 hover:text-purple-700 font-medium"
           >
-            View all tutorials <ExternalLink size={14} className="ml-1" />
+            View all tutorials <ArrowRight size={16} className="ml-1" />
           </Link>
         </div>
       </div>

@@ -5,15 +5,15 @@ const Footer = () => {
   return (
     <footer className="bg-gray-800 text-gray-300 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Logo and Description */}
-          <div className="col-span-1 md:col-span-1">
+          <div className="col-span-1">
             <Link to="/" className="flex items-center gap-2">
               <BookOpen className="h-6 w-6 text-white" />
-              <span className="text-xl font-bold text-white">CodeLearn</span>
+              <span className="text-xl font-bold text-white">Shubhali's CodeCraft</span>
             </Link>
             <p className="mt-2 text-sm text-gray-400">
-              Learn to code with interactive tutorials, examples, and exercises.
+              Learn to code with interactive tutorials and examples.
               Master web development, programming, and computer science fundamentals.
             </p>
             <div className="mt-4 flex space-x-4">
@@ -37,17 +37,6 @@ const Footer = () => {
           </div>
           
           <div>
-            <h3 className="text-white font-medium mb-2">Resources</h3>
-            <ul className="space-y-2">
-              <FooterLink to="/exercises">Exercises</FooterLink>
-              <FooterLink to="/playground">Playground</FooterLink>
-              <FooterLink to="/challenges">Challenges</FooterLink>
-              <FooterLink to="/community">Community</FooterLink>
-              <FooterLink to="/blog">Blog</FooterLink>
-            </ul>
-          </div>
-          
-          <div>
             <h3 className="text-white font-medium mb-2">Company</h3>
             <ul className="space-y-2">
               <FooterLink to="/about">About Us</FooterLink>
@@ -61,7 +50,7 @@ const Footer = () => {
         
         <div className="mt-8 pt-6 border-t border-gray-700 flex flex-col md:flex-row justify-between items-center">
           <p className="text-sm text-gray-400">
-            &copy; {new Date().getFullYear()} CodeLearn. All rights reserved.
+            &copy; {new Date().getFullYear()} Shubhali's CodeCraft. All rights reserved.
           </p>
           <div className="mt-4 md:mt-0 text-sm text-gray-400">
             <a href="#" className="hover:text-white mr-4">Privacy</a>

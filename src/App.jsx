@@ -6,8 +6,6 @@ import HomePage from './pages/Home';
 import LoginPage from './pages/Login';
 import RegisterPage from './pages/Register';
 import TutorialPage from './pages/Tutorial';
-import ExercisePage from './pages/Exercise';
-import PlaygroundPage from './pages/Playground';
 import ProfilePage from './pages/Profile';
 import NotFoundPage from './pages/NotFound';
 import { useAuth } from './hooks/useAuth';
@@ -41,8 +39,6 @@ function App() {
             <Route path="/" element={<MainLayout />}>
               <Route index element={<HomePage />} />
               <Route path="tutorials/:topic?/:page?" element={<TutorialPage />} />
-              <Route path="exercises" element={<ExercisePage />} />
-              <Route path="playground" element={<PlaygroundPage />} />
               
               {/* Protected routes */}
               <Route path="profile" element={

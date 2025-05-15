@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { BookOpen, Code, Check, ArrowRight, Star, Users, Award, PlayCircle } from 'lucide-react';
+import { BookOpen, Code, Check, ArrowRight, Star, Users, Award } from 'lucide-react';
 
 const HomePage = () => {
   return (
@@ -14,7 +14,7 @@ const HomePage = () => {
                 Learn to Code with Interactive Tutorials
               </h1>
               <p className="text-xl opacity-90">
-                Master programming skills with hands-on exercises, real-world examples, and step-by-step guidance.
+                Master programming skills with hands-on examples and step-by-step guidance.
               </p>
               <div className="flex flex-wrap gap-4">
                 <Link 
@@ -22,12 +22,6 @@ const HomePage = () => {
                   className="px-6 py-3 bg-white text-emerald-600 font-medium rounded-md hover:bg-gray-100 transition-colors inline-flex items-center gap-2"
                 >
                   Start Learning <ArrowRight size={18} />
-                </Link>
-                <Link 
-                  to="/playground" 
-                  className="px-6 py-3 bg-emerald-700 text-white font-medium rounded-md hover:bg-emerald-800 transition-colors inline-flex items-center gap-2"
-                >
-                  Try Playground <PlayCircle size={18} />
                 </Link>
               </div>
               <div className="flex items-center gap-4 text-sm pt-2">
@@ -64,7 +58,7 @@ const HomePage = () => {
 </head>
 <body>
   <h1>Hello, World!</h1>
-  <p class="highlight">Welcome to CodeLearn</p>
+  <p class="highlight">Welcome to Shubhali's CodeCraft</p>
   
   <script>
     document.querySelector('.highlight')
@@ -137,7 +131,7 @@ const HomePage = () => {
       <section className="bg-gray-50 py-16">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold mb-4">How CodeLearn Works</h2>
+            <h2 className="text-3xl font-bold mb-4">How Shubhali's CodeCraft Works</h2>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
               Our learning platform is designed to make coding accessible for everyone through a proven, step-by-step approach
             </p>
@@ -152,7 +146,7 @@ const HomePage = () => {
             <FeatureCard 
               number="2"
               title="Practice with Examples"
-              description="Try out code examples in our interactive playground with real-time feedback."
+              description="Study code examples with detailed explanations to reinforce your understanding."
             />
             <FeatureCard 
               number="3"
@@ -168,25 +162,25 @@ const HomePage = () => {
         <div className="text-center mb-12">
           <h2 className="text-3xl font-bold mb-4">What Our Students Say</h2>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Join thousands of satisfied learners who have transformed their careers with CodeLearn
+            Join thousands of satisfied learners who have transformed their careers with Shubhali's CodeCraft
           </p>
         </div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
           <TestimonialCard 
-            quote="CodeLearn helped me transition from a non-technical role to a full-stack developer in just 6 months. The interactive tutorials made all the difference."
+            quote="Shubhali's CodeCraft helped me transition from a non-technical role to a full-stack developer in just 6 months. The interactive tutorials made all the difference."
             name="Alex Morgan"
             title="Software Developer"
             rating={5}
           />
           <TestimonialCard 
-            quote="The way concepts are explained with practical examples makes learning coding so much easier. I've tried other platforms, but none compare to CodeLearn."
+            quote="The way concepts are explained with practical examples makes learning coding so much easier. I've tried other platforms, but none compare to Shubhali's CodeCraft."
             name="Sarah Johnson"
             title="Web Designer"
             rating={5}
           />
           <TestimonialCard 
-            quote="As a computer science student, CodeLearn has been an invaluable supplement to my studies. The exercises are challenging and engaging."
+            quote="As a computer science student, Shubhali's CodeCraft has been an invaluable supplement to my studies. The examples are challenging and engaging."
             name="James Wilson"
             title="CS Student"
             rating={4}
@@ -199,7 +193,7 @@ const HomePage = () => {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl font-bold mb-4">Ready to Start Your Coding Journey?</h2>
           <p className="text-xl opacity-90 mb-8">
-            Join thousands of students learning to code on CodeLearn. Create your free account today.
+            Join thousands of students learning to code on Shubhali's CodeCraft. Create your free account today.
           </p>
           <div className="flex flex-wrap justify-center gap-4">
             <Link 
