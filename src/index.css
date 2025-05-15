@@ -1,0 +1,14 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Keep your custom CSS rules below this line */
+/* Enhanced CSS for Templar's Ascension */
+
+:root {
+  --primary-color: #2c3e50;
+  --secondary-color: #c0392b;
+  /* Rest of your existing CSS variables... */
+}
+
+/* Rest of your existing CSS... */
