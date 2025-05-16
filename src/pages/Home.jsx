@@ -1,12 +1,62 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { BookOpen, Code, Check, ArrowRight, Star, Users, Award } from 'lucide-react';
 
 const HomePage = () => {
+  // Animation states
+  const [isVisible, setIsVisible] = useState({
+    hero: false,
+    courses: false,
+    howItWorks: false,
+    testimonials: false,
+    cta: false
+  });
+
+  // Intersection Observer setup
+  useEffect(() => {
+    const observerOptions = {
+      root: null,
+      rootMargin: '0px',
+      threshold: 0.1
+    };
+
+    const observerCallback = (entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          setIsVisible(prev => ({
+            ...prev,
+            [entry.target.id]: true
+          }));
+        }
+      });
+    };
+
+    const observer = new IntersectionObserver(observerCallback, observerOptions);
+    
+    // Observe all sections
+    const sections = ['hero', 'courses', 'howItWorks', 'testimonials', 'cta'];
+    sections.forEach(section => {
+      const element = document.getElementById(section);
+      if (element) observer.observe(element);
+    });
+
+    return () => {
+      sections.forEach(section => {
+        const element = document.getElementById(section);
+        if (element) observer.unobserve(element);
+      });
+    };
+  }, []);
+
   return (
     <div className="space-y-16 pb-16">
       {/* Hero Section */}
-      <section className="relative bg-gradient-to-r from-emerald-600 to-teal-500 py-20 text-white overflow-hidden">
+      <section 
+        id="hero" 
+        className={`relative bg-gradient-to-r from-emerald-600 to-teal-500 py-20 text-white overflow-hidden transition-all duration-1000 ease-out ${
+          isVisible.hero ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
+        }`}
+      >
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="grid md:grid-cols-2 gap-8 items-center">
             <div className="space-y-6">
@@ -81,7 +131,12 @@ const HomePage = () => {
       </section>
 
       {/* Featured Courses */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section 
+        id="courses" 
+        className={`max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 transition-all duration-1000 ease-out ${
+          isVisible.courses ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
+        }`}
+      >
         <div className="text-center mb-12">
           <h2 className="text-3xl font-bold mb-4">Start Learning Today</h2>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
@@ -128,7 +183,12 @@ const HomePage = () => {
       </section>
 
       {/* How It Works */}
-      <section className="bg-gray-50 py-16">
+      <section 
+        id="howItWorks" 
+        className={`bg-gray-50 py-16 transition-all duration-1000 ease-out ${
+          isVisible.howItWorks ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
+        }`}
+      >
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold mb-4">How Shubhali's CodeCraft Works</h2>
@@ -158,7 +218,12 @@ const HomePage = () => {
       </section>
 
       {/* Testimonials */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section 
+        id="testimonials" 
+        className={`max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 transition-all duration-1000 ease-out ${
+          isVisible.testimonials ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
+        }`}
+      >
         <div className="text-center mb-12">
           <h2 className="text-3xl font-bold mb-4">What Our Students Say</h2>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
@@ -189,7 +254,12 @@ const HomePage = () => {
       </section>
 
       {/* CTA Section */}
-      <section className="bg-emerald-600 text-white py-16">
+      <section 
+        id="cta" 
+        className={`bg-emerald-600 text-white py-16 transition-all duration-1000 ease-out ${
+          isVisible.cta ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
+        }`}
+      >
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl font-bold mb-4">Ready to Start Your Coding Journey?</h2>
           <p className="text-xl opacity-90 mb-8">
