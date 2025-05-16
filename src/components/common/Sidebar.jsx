@@ -1,129 +1,264 @@
-import { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { ChevronDown, ChevronRight, Hash } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Link, useLocation, useParams } from 'react-router-dom';
+import { ChevronDown, ChevronRight, Hash, Folder, File, Code } from 'lucide-react';
 
-const Sidebar = ({ topics, currentTopic, onTopicChange }) => {
-  const [expandedCategories, setExpandedCategories] = useState({
+const Sidebar = ({ currentTopic, onTopicChange }) => {
+  const location = useLocation();
+  const { topic, page } = useParams();
+  
+  // Track expanded states for each level
+  const [expandedDomains, setExpandedDomains] = useState({
     'Web Development': true,
     'Programming': false,
     'Data Structures': false,
   });
   
-  const location = useLocation();
+  const [expandedTechnologies, setExpandedTechnologies] = useState({});
   
-  const toggleCategory = (category) => {
-    setExpandedCategories({
-      ...expandedCategories,
-      [category]: !expandedCategories[category],
-    });
+  // Initialize expanded state for current topic if it exists
+  useEffect(() => {
+    if (topic) {
+      // Find which domain contains this topic
+      const domain = domains.find(d => 
+        d.technologies.some(t => t.id === topic)
+      )?.name;
+      
+      if (domain) {
+        setExpandedDomains(prev => ({
+          ...prev,
+          [domain]: true
+        }));
+        
+        setExpandedTechnologies(prev => ({
+          ...prev,
+          [topic]: true
+        }));
+      }
+    }
+  }, [topic]);
+  
+  // Toggle domain expansion
+  const toggleDomain = (domain) => {
+    setExpandedDomains(prev => ({
+      ...prev,
+      [domain]: !prev[domain]
+    }));
   };
+  
+  // Toggle technology expansion
+  const toggleTechnology = (techId) => {
+    setExpandedTechnologies(prev => ({
+      ...prev,
+      [techId]: !prev[techId]
+    }));
+  };
+  
+  // Data structure for the hierarchical sidebar
+  const domains = [
+    {
+      name: 'Web Development',
+      icon: <Code size={16} />,
+      technologies: [
+        {
+          id: 'html',
+          title: 'HTML',
+          subpages: [
+            { id: 'introduction', title: 'Introduction' },
+            { id: 'elements', title: 'HTML Elements' },
+            { id: 'attributes', title: 'Attributes' },
+            { id: 'headings', title: 'Headings' },
+            { id: 'paragraphs', title: 'Paragraphs' },
+            { id: 'tags', title: 'Common Tags' }
+          ]
+        },
+        {
+          id: 'css',
+          title: 'CSS',
+          subpages: [
+            { id: 'introduction', title: 'Introduction' },
+            { id: 'selectors', title: 'Selectors' },
+            { id: 'box-model', title: 'Box Model' },
+            { id: 'flexbox', title: 'Flexbox' },
+            { id: 'grid', title: 'CSS Grid' }
+          ]
+        },
+        {
+          id: 'javascript',
+          title: 'JavaScript',
+          subpages: [
+            { id: 'introduction', title: 'Introduction' },
+            { id: 'variables', title: 'Variables & Types' },
+            { id: 'functions', title: 'Functions' },
+            { id: 'objects', title: 'Objects' },
+            { id: 'arrays', title: 'Arrays' },
+            { id: 'dom', title: 'DOM Manipulation' }
+          ]
+        },
+        {
+          id: 'react',
+          title: 'React',
+          subpages: [
+            { id: 'introduction', title: 'Introduction' },
+            { id: 'components', title: 'Components' },
+            { id: 'props', title: 'Props' },
+            { id: 'state', title: 'State' },
+            { id: 'hooks', title: 'Hooks' }
+          ]
+        }
+      ]
+    },
+    {
+      name: 'Programming',
+      icon: <Code size={16} />,
+      technologies: [
+        {
+          id: 'python',
+          title: 'Python',
+          subpages: [
+            { id: 'introduction', title: 'Introduction' },
+            { id: 'syntax', title: 'Basic Syntax' },
+            { id: 'data-types', title: 'Data Types' },
+            { id: 'functions', title: 'Functions' },
+            { id: 'modules', title: 'Modules' }
+          ]
+        },
+        {
+          id: 'java',
+          title: 'Java',
+          subpages: [
+            { id: 'introduction', title: 'Introduction' },
+            { id: 'syntax', title: 'Syntax Basics' },
+            { id: 'oop', title: 'OOP Concepts' },
+            { id: 'collections', title: 'Collections' }
+          ]
+        },
+        {
+          id: 'cpp',
+          title: 'C++',
+          subpages: [
+            { id: 'introduction', title: 'Introduction' },
+            { id: 'syntax', title: 'Basic Syntax' },
+            { id: 'pointers', title: 'Pointers' },
+            { id: 'classes', title: 'Classes & Objects' }
+          ]
+        }
+      ]
+    },
+    {
+      name: 'Data Structures',
+      icon: <Folder size={16} />,
+      technologies: [
+        {
+          id: 'arrays',
+          title: 'Arrays',
+          subpages: [
+            { id: 'introduction', title: 'Introduction' },
+            { id: 'operations', title: 'Basic Operations' },
+            { id: 'searching', title: 'Searching' },
+            { id: 'sorting', title: 'Sorting' }
+          ]
+        },
+        {
+          id: 'linked-lists',
+          title: 'Linked Lists',
+          subpages: [
+            { id: 'introduction', title: 'Introduction' },
+            { id: 'singly', title: 'Singly Linked Lists' },
+            { id: 'doubly', title: 'Doubly Linked Lists' },
+            { id: 'circular', title: 'Circular Linked Lists' }
+          ]
+        },
+        {
+          id: 'trees',
+          title: 'Trees',
+          subpages: [
+            { id: 'introduction', title: 'Introduction' },
+            { id: 'binary', title: 'Binary Trees' },
+            { id: 'bst', title: 'Binary Search Trees' },
+            { id: 'avl', title: 'AVL Trees' },
+            { id: 'traversal', title: 'Tree Traversal' }
+          ]
+        }
+      ]
+    }
+  ];
   
   return (
     <aside className="w-64 h-full bg-white border-r">
       <nav className="h-full overflow-y-auto">
-        <div className="p-4">
-          <h2 className="text-lg font-bold text-gray-800">Learn to Code</h2>
-          <p className="text-sm text-gray-600 mt-1">Find your path and master coding skills</p>
-        </div>
         
-        <div className="px-3 py-2">
-          <input
-            type="text"
-            placeholder="Filter topics..."
-            className="w-full px-3 py-2 rounded-md border text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500"
-          />
-        </div>
         
         <div className="mt-2">
-          {/* Web Development Category */}
-          <CategorySection
-            title="Web Development"
-            expanded={expandedCategories['Web Development']}
-            onToggle={() => toggleCategory('Web Development')}
-          >
-            <TopicItem
-              title="HTML"
-              path="/tutorials/html"
-              active={currentTopic === 'html'}
-              onClick={() => onTopicChange('html')}
-            />
-            <TopicItem
-              title="CSS"
-              path="/tutorials/css"
-              active={currentTopic === 'css'}
-              onClick={() => onTopicChange('css')}
-            />
-            <TopicItem
-              title="JavaScript"
-              path="/tutorials/javascript"
-              active={currentTopic === 'javascript'}
-              onClick={() => onTopicChange('javascript')}
-            />
-            <TopicItem
-              title="React"
-              path="/tutorials/react"
-              active={currentTopic === 'react'}
-              onClick={() => onTopicChange('react')}
-            />
-            <TopicItem
-              title="Node.js"
-              path="/tutorials/nodejs"
-              active={currentTopic === 'nodejs'}
-              onClick={() => onTopicChange('nodejs')}
-            />
-          </CategorySection>
-          
-          {/* Programming Category */}
-          <CategorySection
-            title="Programming"
-            expanded={expandedCategories['Programming']}
-            onToggle={() => toggleCategory('Programming')}
-          >
-            <TopicItem
-              title="Python"
-              path="/tutorials/python"
-              active={currentTopic === 'python'}
-              onClick={() => onTopicChange('python')}
-            />
-            <TopicItem
-              title="Java"
-              path="/tutorials/java"
-              active={currentTopic === 'java'}
-              onClick={() => onTopicChange('java')}
-            />
-            <TopicItem
-              title="C++"
-              path="/tutorials/cpp"
-              active={currentTopic === 'cpp'}
-              onClick={() => onTopicChange('cpp')}
-            />
-          </CategorySection>
-          
-          {/* Data Structures Category */}
-          <CategorySection
-            title="Data Structures"
-            expanded={expandedCategories['Data Structures']}
-            onToggle={() => toggleCategory('Data Structures')}
-          >
-            <TopicItem
-              title="Arrays"
-              path="/tutorials/arrays"
-              active={currentTopic === 'arrays'}
-              onClick={() => onTopicChange('arrays')}
-            />
-            <TopicItem
-              title="Linked Lists"
-              path="/tutorials/linked-lists"
-              active={currentTopic === 'linked-lists'}
-              onClick={() => onTopicChange('linked-lists')}
-            />
-            <TopicItem
-              title="Trees"
-              path="/tutorials/trees"
-              active={currentTopic === 'trees'}
-              onClick={() => onTopicChange('trees')}
-            />
-          </CategorySection>
+          {/* Domain Level */}
+          {domains.map((domain) => (
+            <div key={domain.name} className="mb-2">
+              <button
+                onClick={() => toggleDomain(domain.name)}
+                className="flex items-center justify-between w-full px-4 py-2 text-left text-sm font-medium text-gray-800 hover:bg-gray-100 rounded-md"
+              >
+                <div className="flex items-center">
+                  {domain.icon}
+                  <span className="ml-2">{domain.name}</span>
+                </div>
+                {expandedDomains[domain.name] ? (
+                  <ChevronDown size={16} className="text-gray-500" />
+                ) : (
+                  <ChevronRight size={16} className="text-gray-500" />
+                )}
+              </button>
+              
+              {expandedDomains[domain.name] && (
+                <div className="ml-2 pl-2 border-l border-gray-200">
+                  {/* Technology Level */}
+                  {domain.technologies.map((tech) => (
+                    <div key={tech.id}>
+                      <button
+                        onClick={() => toggleTechnology(tech.id)}
+                        className={`flex items-center justify-between w-full px-4 py-2 text-sm rounded-md ${
+                          tech.id === currentTopic
+                            ? 'bg-emerald-100 text-emerald-700 font-medium'
+                            : 'text-gray-700 hover:bg-gray-100'
+                        }`}
+                      >
+                        <div className="flex items-center">
+                          <Hash size={14} className="mr-2 flex-shrink-0" />
+                          <span>{tech.title}</span>
+                        </div>
+                        {tech.subpages && tech.subpages.length > 0 && (
+                          expandedTechnologies[tech.id] ? (
+                            <ChevronDown size={14} className="text-gray-500" />
+                          ) : (
+                            <ChevronRight size={14} className="text-gray-500" />
+                          )
+                        )}
+                      </button>
+                      
+                      {/* Subpage Level */}
+                      {expandedTechnologies[tech.id] && tech.subpages && (
+                        <div className="ml-4 pl-2 border-l border-gray-200">
+                          {tech.subpages.map((subpage) => (
+                            <Link
+                              key={`${tech.id}-${subpage.id}`}
+                              to={`/tutorials/${tech.id}/${subpage.id}`}
+                              className={`flex items-center px-4 py-2 text-xs rounded-md ${
+                                tech.id === topic && subpage.id === page
+                                  ? 'bg-emerald-50 text-emerald-700 font-medium'
+                                  : 'text-gray-600 hover:bg-gray-50'
+                              }`}
+                              onClick={() => onTopicChange(tech.id)}
+                            >
+                              <File size={12} className="mr-2 flex-shrink-0" />
+                              <span>{subpage.title}</span>
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
         </div>
         
         <div className="mt-4 p-4 bg-emerald-50 mx-3 rounded-md">
@@ -142,44 +277,5 @@ const Sidebar = ({ topics, currentTopic, onTopicChange }) => {
     </aside>
   );
 };
-
-// Category Section Component
-const CategorySection = ({ title, expanded, onToggle, children }) => (
-  <div className="mb-2">
-    <button
-      onClick={onToggle}
-      className="flex items-center justify-between w-full px-4 py-2 text-left text-sm font-medium text-gray-800 hover:bg-gray-100 rounded-md"
-    >
-      <span>{title}</span>
-      {expanded ? (
-        <ChevronDown size={16} className="text-gray-500" />
-      ) : (
-        <ChevronRight size={16} className="text-gray-500" />
-      )}
-    </button>
-    
-    {expanded && (
-      <div className="ml-2 pl-2 border-l border-gray-200">
-        {children}
-      </div>
-    )}
-  </div>
-);
-
-// Topic Item Component
-const TopicItem = ({ title, path, active, onClick }) => (
-  <Link
-    to={path}
-    className={`flex items-center px-4 py-2 text-sm rounded-md ${
-      active
-        ? 'bg-emerald-100 text-emerald-700 font-medium'
-        : 'text-gray-700 hover:bg-gray-100'
-    }`}
-    onClick={onClick}
-  >
-    <Hash size={14} className="mr-2 flex-shrink-0" />
-    <span>{title}</span>
-  </Link>
-);
 
 export default Sidebar;
