@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Outlet, useLocation } from 'react-router-dom';
 import { ArrowRight, ArrowLeft } from 'lucide-react';
 import Navbar from '../common/Navbar';
 import Sidebar from '../common/Sidebar';
@@ -8,12 +8,37 @@ import Footer from '../common/Footer';
 const MainLayout = () => {
   const [currentTopic, setCurrentTopic] = useState('html');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isHovering, setIsHovering] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const location = useLocation();
   
   const handleTopicChange = (topic) => {
     setCurrentTopic(topic);
     setIsSidebarOpen(false); // Close sidebar when topic changes
   };
+  
+  // Close sidebar on navigation and on initial load
+  useEffect(() => {
+    setIsSidebarOpen(false);
+  }, [location.pathname]);
+
+  // Close sidebar when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      const sidebar = document.getElementById('sidebar-container');
+      const toggleButton = document.getElementById('sidebar-toggle');
+      
+      if (isSidebarOpen && 
+          sidebar && 
+          !sidebar.contains(event.target) && 
+          toggleButton && 
+          !toggleButton.contains(event.target)) {
+        setIsSidebarOpen(false);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isSidebarOpen]);
   
   // Sample topics data (would be fetched from API in real app)
   const topics = [
@@ -30,67 +55,72 @@ const MainLayout = () => {
     { id: 'trees', title: 'Trees', category: 'Data Structures' },
   ];
   
+  // Handle mobile menu state changes from navbar
+  const handleMobileMenuToggle = (isOpen) => {
+    setIsMobileMenuOpen(isOpen);
+    // Close sidebar if mobile menu is opened
+    if (isOpen) {
+      setIsSidebarOpen(false);
+    }
+  };
+  
   return (
     <div className="flex flex-col min-h-screen">
-      <Navbar />
+      <Navbar onMobileMenuToggle={handleMobileMenuToggle} />
       
-      <div className="flex flex-1 relative">
-        {/* Sidebar with scrollable content */}
-        <div className="fixed inset-y-0 left-0 z-40" style={{ top: '64px' }}>
-          {/* This div is for the sidebar content */}
-          <div 
-            className={`h-full transition-transform duration-300 ease-in-out transform ${
-              isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-            }`}
-            onMouseEnter={() => setIsHovering(true)}
-            onMouseLeave={() => setIsHovering(false)}
-          >
-            <div 
-              className={`h-full overflow-y-auto ${isHovering ? 'hover:overflow-y-scroll' : ''}`} 
-              style={{ maxHeight: 'calc(100vh - 64px)' }}
-            >
-              <Sidebar
-                topics={topics}
-                currentTopic={currentTopic}
-                onTopicChange={handleTopicChange}
-              />
-            </div>
-          </div>
-          
-          {/* Toggle button - always visible, positioned to the right of the sidebar */}
-          <div className="absolute top-1/2 left-0 transform -translate-y-1/2">
-            <button
-              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className={`flex items-center justify-center h-12 w-8 bg-emerald-600 text-white rounded-r-md hover:bg-emerald-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 shadow-md ${
-                isSidebarOpen ? 'translate-x-64' : 'translate-x-0'
-              }`}
-              style={{ 
-                transitionProperty: 'transform, background-color',
-                transitionDuration: '300ms'
-              }}
-              aria-label={isSidebarOpen ? "Hide Topics" : "View Topics"}
-            >
-              {isSidebarOpen ? <ArrowLeft size={16} /> : <ArrowRight size={16} />}
-            </button>
-          </div>
-        </div>
-        
-        {/* Backdrop - Only visible when sidebar is open */}
-        {isSidebarOpen && (
-          <div 
-            className="fixed inset-0 bg-gray-600 bg-opacity-75 z-30 transition-opacity duration-300"
-            style={{ top: '64px' }} // Adjust based on your navbar height
-            onClick={() => setIsSidebarOpen(false)}
-          ></div>
-        )}
-        
-        {/* Main Content */}
-        <main className="flex-1 bg-gray-50">
-          <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+      <div className="flex flex-1">
+        {/* Main Content - Always full width */}
+        <main className="w-full flex-1 bg-gray-50">
+          <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
             {/* Outlet for nested routes */}
             <Outlet />
           </div>
         </main>
+        
+        {/* Sidebar - Positioned as overlay with fixed position */}
+        <div 
+          id="sidebar-container"
+          className={`fixed inset-y-0 left-0 z-40 transform transition-transform duration-300 ease-in-out ${
+            isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+          }`}
+          style={{ top: '64px', width: '16rem' }}
+        >
+          <div className="h-full bg-white border-r overflow-y-auto">
+            <Sidebar
+              topics={topics}
+              currentTopic={currentTopic}
+              onTopicChange={handleTopicChange}
+            />
+          </div>
+        </div>
+        
+        {/* Sidebar Toggle Button - Hidden when mobile menu is open */}
+        {!isMobileMenuOpen && (
+          <div 
+            id="sidebar-toggle"
+            className="fixed z-50 top-20 left-0"
+          >
+            <button
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              className={`flex items-center justify-center h-10 w-10 bg-emerald-600 text-white rounded-r-md shadow-md transition-all duration-300 ${
+                isSidebarOpen ? 'translate-x-64' : 'translate-x-0'
+              }`}
+              aria-label={isSidebarOpen ? "Hide Topics" : "View Topics"}
+            >
+              {isSidebarOpen ? <ArrowLeft size={18} /> : <ArrowRight size={18} />}
+            </button>
+          </div>
+        )}
+        
+        {/* Dark Backdrop - Only visible when sidebar is open */}
+        {isSidebarOpen && (
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-50 z-30 transition-opacity duration-300"
+            style={{ top: '64px' }}
+            onClick={() => setIsSidebarOpen(false)}
+            aria-hidden="true"
+          ></div>
+        )}
       </div>
       
       <Footer />

@@ -153,50 +153,59 @@ const TutorialCategories = () => {
   
   return (
     <div className="mb-12">
-      <h2 className="text-2xl font-bold mb-6">Browse by Category</h2>
+      <h2 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">Browse by Category</h2>
       
-      {/* Category Tabs */}
-      <div className="flex border-b mb-6 overflow-x-auto hide-scrollbar">
-        {categories.map((category) => (
-          <button
-            key={category.id}
-            onClick={() => setActiveCategory(category.id)}
-            className={`flex items-center px-4 py-2 border-b-2 font-medium text-sm whitespace-nowrap ${
-              activeCategory === category.id
-                ? 'border-emerald-500 text-emerald-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            <span className="mr-2">{category.icon}</span>
-            {category.name}
-          </button>
-        ))}
+      {/* Scrollable Category Tabs */}
+      <div className="relative mb-6 overflow-hidden">
+        <div className="flex overflow-x-auto scrollbar-hide py-1 -mx-4 px-4">
+          {categories.map((category) => (
+            <button
+              key={category.id}
+              onClick={() => setActiveCategory(category.id)}
+              className={`flex items-center px-3 py-2 border-b-2 font-medium text-sm whitespace-nowrap flex-shrink-0 mr-4 ${
+                activeCategory === category.id
+                  ? 'border-emerald-500 text-emerald-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <span className="mr-2">{category.icon}</span>
+              {category.name}
+            </button>
+          ))}
+        </div>
       </div>
       
-      {/* Tutorials for the active category */}
-      <div className="grid md:grid-cols-2 gap-6">
+      {/* Tutorial Cards - Responsive Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {tutorialsByCategory[activeCategory]?.map((tutorial, index) => (
           <Link 
             key={index} 
             to={tutorial.path}
-            className="flex border rounded-lg overflow-hidden hover:shadow-md transition-shadow"
+            className="block border rounded-lg overflow-hidden hover:shadow-md transition-shadow bg-white"
           >
-            <div className="w-16 bg-gray-100 flex items-center justify-center">
-              {tutorial.icon}
-            </div>
-            <div className="flex-1 p-4">
-              <div className="flex justify-between items-start">
-                <h3 className="font-medium text-gray-900">{tutorial.title}</h3>
+            {/* Card Header with Icon */}
+            <div className="flex items-center p-4 border-b">
+              <div className="w-10 h-10 flex-shrink-0 bg-gray-100 rounded-md flex items-center justify-center mr-3">
+                {tutorial.icon}
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="font-medium text-gray-900 truncate">{tutorial.title}</h3>
+              </div>
+              <div className="ml-2 flex-shrink-0">
                 {getLevelBadge(tutorial.level)}
               </div>
-              <p className="text-sm text-gray-600 mt-1 mb-2">{tutorial.description}</p>
+            </div>
+            
+            {/* Card Body */}
+            <div className="p-4">
+              <p className="text-sm text-gray-600 mb-4 line-clamp-2">{tutorial.description}</p>
               <div className="flex justify-between items-center text-xs text-gray-500">
                 <div className="flex items-center">
                   <BookOpen size={14} className="mr-1" />
                   <span>{tutorial.lessons} lessons</span>
                 </div>
                 <div className="flex items-center text-emerald-600 font-medium">
-                  <span>View Tutorial</span>
+                  <span>Start Learning</span>
                   <ChevronRight size={14} className="ml-1" />
                 </div>
               </div>

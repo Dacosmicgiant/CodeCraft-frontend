@@ -115,16 +115,16 @@ const RegisterPage = () => {
   const { strength, text, color } = passwordStrength();
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-8 sm:py-12 px-4 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <Link to="/" className="flex items-center justify-center gap-2 mb-6">
-          <BookOpen className="h-10 w-10 text-emerald-600" />
-          <span className="text-2xl font-bold text-gray-900">CodeLearn</span>
+          <BookOpen className="h-8 w-8 md:h-10 md:w-10 text-emerald-600" />
+          <span className="text-xl md:text-2xl font-bold text-gray-900">CodeLearn</span>
         </Link>
-        <h2 className="text-center text-3xl font-bold text-gray-900">
+        <h2 className="text-center text-2xl md:text-3xl font-bold text-gray-900">
           Create your account
         </h2>
-        <p className="mt-2 text-center text-gray-600">
+        <p className="mt-2 text-center text-sm md:text-base text-gray-600">
           Already have an account?{' '}
           <Link to="/login" className="font-medium text-emerald-600 hover:text-emerald-500">
             Sign in
@@ -132,15 +132,15 @@ const RegisterPage = () => {
         </p>
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+      <div className="mt-6 sm:mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+        <div className="bg-white py-6 md:py-8 px-4 shadow sm:rounded-lg sm:px-10">
           {errors.form && (
             <div className="mb-4 p-3 bg-red-50 text-red-700 text-sm rounded-md">
               {errors.form}
             </div>
           )}
           
-          <form className="space-y-6" onSubmit={handleSubmit}>
+          <form className="space-y-4 md:space-y-6" onSubmit={handleSubmit}>
             <div>
               <label htmlFor="username" className="block text-sm font-medium text-gray-700">
                 Username
@@ -296,6 +296,7 @@ const RegisterPage = () => {
             </div>
           </form>
 
+          {/* Social Login Section */}
           <div className="mt-6">
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
@@ -307,6 +308,7 @@ const RegisterPage = () => {
             </div>
 
             <div className="mt-6 grid grid-cols-2 gap-3">
+              {/* Social login buttons remain the same */}
               <div>
                 <a
                   href="#"
@@ -336,23 +338,21 @@ const RegisterPage = () => {
         </div>
       </div>
       
-      <div className="mt-8 text-center">
+      <div className="mt-6 text-center">
         <Link to="/" className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-emerald-600">
           <ArrowLeft size={16} />
-          Back to home
+          <span>Back to home</span>
         </Link>
       </div>
       
-      {/* Benefits */}
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="px-4 sm:px-10">
-          <h3 className="text-lg font-medium text-gray-700 mb-4">Why join CodeLearn?</h3>
-          <ul className="space-y-3">
-            <BenefitItem text="Access to all tutorials and exercises" />
-            <BenefitItem text="Track your learning progress" />
-            <BenefitItem text="Save your favorite content" />
-            <BenefitItem text="Participate in coding challenges" />
-          </ul>
+      {/* Benefits - Better layout for mobile */}
+      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md px-4 sm:px-10">
+        <h3 className="text-lg font-medium text-gray-700 mb-4">Why join CodeLearn?</h3>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-2">
+          <BenefitItem text="Access all tutorials" />
+          <BenefitItem text="Track progress" />
+          <BenefitItem text="Save favorites" />
+          <BenefitItem text="Coding challenges" />
         </div>
       </div>
     </div>
@@ -360,10 +360,10 @@ const RegisterPage = () => {
 };
 
 const BenefitItem = ({ text }) => (
-  <li className="flex items-start">
-    <CheckCircle size={18} className="mt-0.5 text-emerald-500 flex-shrink-0" />
-    <span className="ml-2 text-sm text-gray-600">{text}</span>
-  </li>
+  <div className="flex items-start bg-white p-2 rounded-md border shadow-sm">
+    <CheckCircle size={16} className="mt-0.5 text-emerald-500 flex-shrink-0" />
+    <span className="ml-2 text-xs sm:text-sm text-gray-600">{text}</span>
+  </div>
 );
 
 export default RegisterPage;
