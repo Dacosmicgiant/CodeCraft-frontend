@@ -27,7 +27,7 @@ const Navbar = ({ onMobileMenuToggle }) => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
   
-  // Close mobile menu when navigating to a new page
+// Close mobile menu when navigating to a new page
   useEffect(() => {
     if (isOpen) {
       // Disable scroll lock when navigating away
@@ -35,7 +35,7 @@ const Navbar = ({ onMobileMenuToggle }) => {
       setIsOpen(false);
     }
     setIsMobileSearchOpen(false);
-  }, [location.pathname, isOpen]);
+  }, [location.pathname]); // Removed isOpen from dependencies
   
   // Toggle mobile menu and scroll lock
   const toggleMobileMenu = () => {
@@ -193,7 +193,7 @@ const Navbar = ({ onMobileMenuToggle }) => {
       
       {/* Mobile Menu - Full screen overlay */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 bg-emerald-800 md:hidden mobile-menu-height" style={{top: '64px'}}>
+        <div className="fixed inset-0 z-50 bg-emerald-800 md:hidden mobile-menu-height" style={{top: '64px', width: '100vw', left: 0, right: 0}}>
           <div className="flex flex-col h-full p-4 overflow-y-auto">
             <nav className="flex flex-col gap-2">
               <MobileNavLink to="/tutorials" active={isActive('/tutorials')}>

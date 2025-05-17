@@ -363,28 +363,7 @@ const TutorialPage = () => {
         </div>
       )}
       
-      {/* Featured Banner */}
-      <div className="mt-12 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-lg p-6 text-white">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-          <div>
-            <h2 className="text-xl md:text-2xl font-bold mb-2">Ready to become a coding pro?</h2>
-            <p className="text-purple-100 mb-4">
-              Get unlimited access to all our premium tutorials.
-            </p>
-            <div className="flex flex-wrap gap-3">
-              <Feature>In-depth content</Feature>
-              <Feature>Project-based learning</Feature>
-              <Feature>Certificate of completion</Feature>
-            </div>
-          </div>
-          <Link 
-            to="/pro"
-            className="px-6 py-3 bg-white text-purple-700 rounded-md font-medium hover:bg-gray-100 whitespace-nowrap"
-          >
-            Upgrade to Pro
-          </Link>
-        </div>
-      </div>
+      
     </div>
   );
 };

@@ -216,17 +216,7 @@ const Sidebar = ({ currentTopic, onTopicChange }) => {
   return (
     <aside className="w-64 h-full bg-white border-r">
       <nav className="h-full overflow-y-auto">
-        <div className="p-4">
-          <div className="flex items-center mb-4">
-            <BookOpen size={20} className="text-emerald-600 mr-2" />
-            <h2 className="text-lg font-bold text-gray-800">Tutorial Index</h2>
-          </div>
-          <div className="bg-emerald-50 p-3 rounded-md mb-4">
-            <p className="text-sm text-emerald-700">
-              Our tutorials include notes and video lessons to help you learn effectively.
-            </p>
-          </div>
-        </div>
+        
         
         <div className="mt-2">
           {/* Domain Level */}
@@ -301,18 +291,7 @@ const Sidebar = ({ currentTopic, onTopicChange }) => {
           ))}
         </div>
         
-        <div className="mt-4 p-4 bg-emerald-50 mx-3 rounded-md">
-          <h3 className="font-medium text-emerald-800">Pro Access</h3>
-          <p className="text-sm text-emerald-700 mt-1">
-            Get unlimited access to all courses and exercises
-          </p>
-          <Link 
-            to="/pro"
-            className="mt-2 block w-full text-center px-4 py-2 bg-emerald-600 text-white rounded-md text-sm hover:bg-emerald-700"
-          >
-            Upgrade Now
-          </Link>
-        </div>
+        
       </nav>
     </aside>
   );
