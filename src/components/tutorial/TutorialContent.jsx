@@ -25,6 +25,22 @@ const TutorialContent = ({ content }) => {
         </div>
       )}
       
+      {/* YouTube Video Embed */}
+      {content.videoUrl && (
+        <div className="mb-8">
+          <div className="aspect-w-16 aspect-h-9">
+            <iframe 
+              src={content.videoUrl} 
+              title={content.title}
+              frameBorder="0" 
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+              allowFullScreen
+              className="w-full h-full rounded-lg shadow-md"
+            ></iframe>
+          </div>
+        </div>
+      )}
+      
       {/* Table of Contents */}
       {content.sections && content.sections.length > 0 && (
         <div className="mb-8 p-4 bg-gray-50 rounded-md">
@@ -54,6 +70,22 @@ const TutorialContent = ({ content }) => {
               {section.text.split('\n\n').map((paragraph, i) => (
                 <p key={i} className="mb-4">{paragraph}</p>
               ))}
+            </div>
+          )}
+          
+          {/* Section Video Embed */}
+          {section.videoUrl && (
+            <div className="mb-6">
+              <div className="aspect-w-16 aspect-h-9">
+                <iframe 
+                  src={section.videoUrl} 
+                  title={section.title}
+                  frameBorder="0" 
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                  allowFullScreen
+                  className="w-full h-full rounded-lg shadow-md"
+                ></iframe>
+              </div>
             </div>
           )}
           

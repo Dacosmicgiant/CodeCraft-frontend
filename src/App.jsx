@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import MainLayout from './components/layout/MainLayout';
@@ -9,6 +9,12 @@ import TutorialPage from './pages/Tutorial';
 import ProfilePage from './pages/Profile';
 import NotFoundPage from './pages/NotFound';
 import { useAuth } from './hooks/useAuth';
+
+// Import static tutorial pages
+import HTMLTutorial from './pages/tutorials/HTMLTutorial';
+import CSSTutorial from './pages/tutorials/CSSTutorial';
+import JavaScriptTutorial from './pages/tutorials/JavaScriptTutorial';
+import ReactTutorial from './pages/tutorials/ReactTutorial';
 
 // Protected route component
 const ProtectedRoute = ({ children }) => {
@@ -38,7 +44,16 @@ function App() {
             {/* Main layout routes */}
             <Route path="/" element={<MainLayout />}>
               <Route index element={<HomePage />} />
-              <Route path="tutorials/:topic?/:page?" element={<TutorialPage />} />
+              <Route path="tutorials" element={<TutorialPage />} />
+              
+              {/* Static tutorial pages */}
+              <Route path="tutorials/html" element={<HTMLTutorial />} />
+              <Route path="tutorials/css" element={<CSSTutorial />} />
+              <Route path="tutorials/javascript" element={<JavaScriptTutorial />} />
+              <Route path="tutorials/react" element={<ReactTutorial />} />
+              
+              {/* Dynamic tutorial routes (for future use) */}
+              <Route path="tutorials/:topic/:page" element={<TutorialPage />} />
               
               {/* Protected routes */}
               <Route path="profile" element={

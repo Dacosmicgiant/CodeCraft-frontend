@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
-import { ChevronDown, ChevronRight, Hash, Folder, File, Code } from 'lucide-react';
+import { ChevronDown, ChevronRight, Hash, Folder, File, Code, BookOpen } from 'lucide-react';
 
 const Sidebar = ({ currentTopic, onTopicChange }) => {
   const location = useLocation();
@@ -13,7 +13,12 @@ const Sidebar = ({ currentTopic, onTopicChange }) => {
     'Data Structures': false,
   });
   
-  const [expandedTechnologies, setExpandedTechnologies] = useState({});
+  const [expandedTechnologies, setExpandedTechnologies] = useState({
+    'html': true,
+    'css': false,
+    'javascript': false,
+    'react': false
+  });
   
   // Initialize expanded state for current topic if it exists
   useEffect(() => {
@@ -35,7 +40,23 @@ const Sidebar = ({ currentTopic, onTopicChange }) => {
         }));
       }
     }
-  }, [topic]);
+    
+    // Expand based on current path
+    const path = location.pathname;
+    if (path.includes('/html')) {
+      setExpandedTechnologies(prev => ({ ...prev, html: true }));
+      setExpandedDomains(prev => ({ ...prev, 'Web Development': true }));
+    } else if (path.includes('/css')) {
+      setExpandedTechnologies(prev => ({ ...prev, css: true }));
+      setExpandedDomains(prev => ({ ...prev, 'Web Development': true }));
+    } else if (path.includes('/javascript')) {
+      setExpandedTechnologies(prev => ({ ...prev, javascript: true }));
+      setExpandedDomains(prev => ({ ...prev, 'Web Development': true }));
+    } else if (path.includes('/react')) {
+      setExpandedTechnologies(prev => ({ ...prev, react: true }));
+      setExpandedDomains(prev => ({ ...prev, 'Web Development': true }));
+    }
+  }, [topic, location.pathname]);
   
   // Toggle domain expansion
   const toggleDomain = (domain) => {
@@ -53,6 +74,11 @@ const Sidebar = ({ currentTopic, onTopicChange }) => {
     }));
   };
   
+  // Check if a path is active
+  const isActive = (path) => {
+    return location.pathname === path;
+  };
+  
   // Data structure for the hierarchical sidebar
   const domains = [
     {
@@ -62,47 +88,45 @@ const Sidebar = ({ currentTopic, onTopicChange }) => {
         {
           id: 'html',
           title: 'HTML',
+          path: '/tutorials/html',
           subpages: [
-            { id: 'introduction', title: 'Introduction' },
-            { id: 'elements', title: 'HTML Elements' },
-            { id: 'attributes', title: 'Attributes' },
-            { id: 'headings', title: 'Headings' },
-            { id: 'paragraphs', title: 'Paragraphs' },
-            { id: 'tags', title: 'Common Tags' }
+            { id: 'introduction', title: 'Introduction', path: '/tutorials/html#section-0' },
+            { id: 'document-structure', title: 'Document Structure', path: '/tutorials/html#section-1' },
+            { id: 'elements', title: 'HTML Elements', path: '/tutorials/html#section-2' },
+            { id: 'attributes', title: 'Attributes', path: '/tutorials/html#section-3' }
           ]
         },
         {
           id: 'css',
           title: 'CSS',
+          path: '/tutorials/css',
           subpages: [
-            { id: 'introduction', title: 'Introduction' },
-            { id: 'selectors', title: 'Selectors' },
-            { id: 'box-model', title: 'Box Model' },
-            { id: 'flexbox', title: 'Flexbox' },
-            { id: 'grid', title: 'CSS Grid' }
+            { id: 'introduction', title: 'Introduction', path: '/tutorials/css#section-0' },
+            { id: 'syntax', title: 'CSS Syntax', path: '/tutorials/css#section-1' },
+            { id: 'selectors', title: 'CSS Selectors', path: '/tutorials/css#section-2' },
+            { id: 'box-model', title: 'Box Model', path: '/tutorials/css#section-3' }
           ]
         },
         {
           id: 'javascript',
           title: 'JavaScript',
+          path: '/tutorials/javascript',
           subpages: [
-            { id: 'introduction', title: 'Introduction' },
-            { id: 'variables', title: 'Variables & Types' },
-            { id: 'functions', title: 'Functions' },
-            { id: 'objects', title: 'Objects' },
-            { id: 'arrays', title: 'Arrays' },
-            { id: 'dom', title: 'DOM Manipulation' }
+            { id: 'introduction', title: 'Introduction', path: '/tutorials/javascript#section-0' },
+            { id: 'variables', title: 'Variables & Types', path: '/tutorials/javascript#section-1' },
+            { id: 'functions', title: 'Functions', path: '/tutorials/javascript#section-2' },
+            { id: 'dom', title: 'DOM Manipulation', path: '/tutorials/javascript#section-3' }
           ]
         },
         {
           id: 'react',
           title: 'React',
+          path: '/tutorials/react',
           subpages: [
-            { id: 'introduction', title: 'Introduction' },
-            { id: 'components', title: 'Components' },
-            { id: 'props', title: 'Props' },
-            { id: 'state', title: 'State' },
-            { id: 'hooks', title: 'Hooks' }
+            { id: 'introduction', title: 'Introduction', path: '/tutorials/react#section-0' },
+            { id: 'components', title: 'Components', path: '/tutorials/react#section-1' },
+            { id: 'state-props', title: 'State and Props', path: '/tutorials/react#section-2' },
+            { id: 'hooks', title: 'React Hooks', path: '/tutorials/react#section-3' }
           ]
         }
       ]
@@ -114,32 +138,35 @@ const Sidebar = ({ currentTopic, onTopicChange }) => {
         {
           id: 'python',
           title: 'Python',
+          path: '/tutorials/python',
           subpages: [
-            { id: 'introduction', title: 'Introduction' },
-            { id: 'syntax', title: 'Basic Syntax' },
-            { id: 'data-types', title: 'Data Types' },
-            { id: 'functions', title: 'Functions' },
-            { id: 'modules', title: 'Modules' }
+            { id: 'introduction', title: 'Introduction', path: '/tutorials/python' },
+            { id: 'syntax', title: 'Basic Syntax', path: '/tutorials/python' },
+            { id: 'data-types', title: 'Data Types', path: '/tutorials/python' },
+            { id: 'functions', title: 'Functions', path: '/tutorials/python' },
+            { id: 'modules', title: 'Modules', path: '/tutorials/python' }
           ]
         },
         {
           id: 'java',
           title: 'Java',
+          path: '/tutorials/java',
           subpages: [
-            { id: 'introduction', title: 'Introduction' },
-            { id: 'syntax', title: 'Syntax Basics' },
-            { id: 'oop', title: 'OOP Concepts' },
-            { id: 'collections', title: 'Collections' }
+            { id: 'introduction', title: 'Introduction', path: '/tutorials/java' },
+            { id: 'syntax', title: 'Syntax Basics', path: '/tutorials/java' },
+            { id: 'oop', title: 'OOP Concepts', path: '/tutorials/java' },
+            { id: 'collections', title: 'Collections', path: '/tutorials/java' }
           ]
         },
         {
           id: 'cpp',
           title: 'C++',
+          path: '/tutorials/cpp',
           subpages: [
-            { id: 'introduction', title: 'Introduction' },
-            { id: 'syntax', title: 'Basic Syntax' },
-            { id: 'pointers', title: 'Pointers' },
-            { id: 'classes', title: 'Classes & Objects' }
+            { id: 'introduction', title: 'Introduction', path: '/tutorials/cpp' },
+            { id: 'syntax', title: 'Basic Syntax', path: '/tutorials/cpp' },
+            { id: 'pointers', title: 'Pointers', path: '/tutorials/cpp' },
+            { id: 'classes', title: 'Classes & Objects', path: '/tutorials/cpp' }
           ]
         }
       ]
@@ -151,32 +178,35 @@ const Sidebar = ({ currentTopic, onTopicChange }) => {
         {
           id: 'arrays',
           title: 'Arrays',
+          path: '/tutorials/arrays',
           subpages: [
-            { id: 'introduction', title: 'Introduction' },
-            { id: 'operations', title: 'Basic Operations' },
-            { id: 'searching', title: 'Searching' },
-            { id: 'sorting', title: 'Sorting' }
+            { id: 'introduction', title: 'Introduction', path: '/tutorials/arrays' },
+            { id: 'operations', title: 'Basic Operations', path: '/tutorials/arrays' },
+            { id: 'searching', title: 'Searching', path: '/tutorials/arrays' },
+            { id: 'sorting', title: 'Sorting', path: '/tutorials/arrays' }
           ]
         },
         {
           id: 'linked-lists',
           title: 'Linked Lists',
+          path: '/tutorials/linked-lists',
           subpages: [
-            { id: 'introduction', title: 'Introduction' },
-            { id: 'singly', title: 'Singly Linked Lists' },
-            { id: 'doubly', title: 'Doubly Linked Lists' },
-            { id: 'circular', title: 'Circular Linked Lists' }
+            { id: 'introduction', title: 'Introduction', path: '/tutorials/linked-lists' },
+            { id: 'singly', title: 'Singly Linked Lists', path: '/tutorials/linked-lists' },
+            { id: 'doubly', title: 'Doubly Linked Lists', path: '/tutorials/linked-lists' },
+            { id: 'circular', title: 'Circular Linked Lists', path: '/tutorials/linked-lists' }
           ]
         },
         {
           id: 'trees',
           title: 'Trees',
+          path: '/tutorials/trees',
           subpages: [
-            { id: 'introduction', title: 'Introduction' },
-            { id: 'binary', title: 'Binary Trees' },
-            { id: 'bst', title: 'Binary Search Trees' },
-            { id: 'avl', title: 'AVL Trees' },
-            { id: 'traversal', title: 'Tree Traversal' }
+            { id: 'introduction', title: 'Introduction', path: '/tutorials/trees' },
+            { id: 'binary', title: 'Binary Trees', path: '/tutorials/trees' },
+            { id: 'bst', title: 'Binary Search Trees', path: '/tutorials/trees' },
+            { id: 'avl', title: 'AVL Trees', path: '/tutorials/trees' },
+            { id: 'traversal', title: 'Tree Traversal', path: '/tutorials/trees' }
           ]
         }
       ]
@@ -186,7 +216,17 @@ const Sidebar = ({ currentTopic, onTopicChange }) => {
   return (
     <aside className="w-64 h-full bg-white border-r">
       <nav className="h-full overflow-y-auto">
-        
+        <div className="p-4">
+          <div className="flex items-center mb-4">
+            <BookOpen size={20} className="text-emerald-600 mr-2" />
+            <h2 className="text-lg font-bold text-gray-800">Tutorial Index</h2>
+          </div>
+          <div className="bg-emerald-50 p-3 rounded-md mb-4">
+            <p className="text-sm text-emerald-700">
+              Our tutorials include notes and video lessons to help you learn effectively.
+            </p>
+          </div>
+        </div>
         
         <div className="mt-2">
           {/* Domain Level */}
@@ -212,10 +252,11 @@ const Sidebar = ({ currentTopic, onTopicChange }) => {
                   {/* Technology Level */}
                   {domain.technologies.map((tech) => (
                     <div key={tech.id}>
-                      <button
+                      <Link
+                        to={tech.path}
                         onClick={() => toggleTechnology(tech.id)}
                         className={`flex items-center justify-between w-full px-4 py-2 text-sm rounded-md ${
-                          tech.id === currentTopic
+                          isActive(tech.path)
                             ? 'bg-emerald-100 text-emerald-700 font-medium'
                             : 'text-gray-700 hover:bg-gray-100'
                         }`}
@@ -231,7 +272,7 @@ const Sidebar = ({ currentTopic, onTopicChange }) => {
                             <ChevronRight size={14} className="text-gray-500" />
                           )
                         )}
-                      </button>
+                      </Link>
                       
                       {/* Subpage Level */}
                       {expandedTechnologies[tech.id] && tech.subpages && (
@@ -239,13 +280,12 @@ const Sidebar = ({ currentTopic, onTopicChange }) => {
                           {tech.subpages.map((subpage) => (
                             <Link
                               key={`${tech.id}-${subpage.id}`}
-                              to={`/tutorials/${tech.id}/${subpage.id}`}
+                              to={subpage.path}
                               className={`flex items-center px-4 py-2 text-xs rounded-md ${
-                                tech.id === topic && subpage.id === page
+                                location.pathname.includes(tech.path) && location.hash === `#section-${tech.subpages.indexOf(subpage)}`
                                   ? 'bg-emerald-50 text-emerald-700 font-medium'
                                   : 'text-gray-600 hover:bg-gray-50'
                               }`}
-                              onClick={() => onTopicChange(tech.id)}
                             >
                               <File size={12} className="mr-2 flex-shrink-0" />
                               <span>{subpage.title}</span>
