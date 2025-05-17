@@ -1,5 +1,7 @@
+// src/context/AuthContext.jsx
 import { createContext, useState, useEffect } from 'react';
 
+// Create the context and export it
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
@@ -19,16 +21,29 @@ export const AuthProvider = ({ children }) => {
 
   const login = (userData) => {
     // This would be replaced with actual API auth
-    setUser(userData);
+    // For demo purposes, let's add an admin role if username is "admin"
+    const isAdmin = userData.username === "admin";
+    
+    const userWithRole = {
+      ...userData,
+      role: isAdmin ? 'admin' : 'user'
+    };
+    
+    setUser(userWithRole);
     setIsAuthenticated(true);
-    localStorage.setItem('user', JSON.stringify(userData));
+    localStorage.setItem('user', JSON.stringify(userWithRole));
   };
 
   const register = (userData) => {
     // This would be replaced with actual API registration
-    setUser(userData);
+    const userWithRole = {
+      ...userData,
+      role: 'user' // New users are regular users by default
+    };
+    
+    setUser(userWithRole);
     setIsAuthenticated(true);
-    localStorage.setItem('user', JSON.stringify(userData));
+    localStorage.setItem('user', JSON.stringify(userWithRole));
   };
 
   const logout = () => {
