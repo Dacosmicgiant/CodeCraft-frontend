@@ -187,7 +187,7 @@ const LoginPage = () => {
             </div>
           </form>
 
-          <div className="mt-6">
+          {/* <div className="mt-6">
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
                 <div className="w-full border-t border-gray-300" />
@@ -223,7 +223,7 @@ const LoginPage = () => {
                 </a>
               </div>
             </div>
-          </div>
+          </div> */}
         </div>
       </div>
       
