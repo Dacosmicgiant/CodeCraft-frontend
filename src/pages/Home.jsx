@@ -256,7 +256,7 @@ const HomePage = () => {
       {/* CTA Section */}
       <section 
         id="cta" 
-        className={`bg-emerald-600 text-white py-16 transition-all duration-1000 ease-out ${
+        className={` bg-gradient-to-r from-emerald-600 to-teal-500 text-white py-16 transition-all duration-1000 ease-out ${
           isVisible.cta ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
         }`}
       >
