@@ -1,10 +1,12 @@
 import axios from 'axios';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api/v1';
+// Update this to point to your local backend
+// In Vite, use import.meta.env instead of process.env
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api/v1';
 
 const api = axios.create({
   baseURL: API_URL,
-  withCredentials: true,
+  withCredentials: true, // Important for cookies to work
 });
 
 // Add a request interceptor
@@ -19,14 +21,14 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Add a response interceptor
+// Add a response interceptor - keep this part from your original file
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
     
     // If error is 401 and not already retrying
-    if (error.response.status === 401 && !originalRequest._retry) {
+    if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
       
       try {
@@ -43,7 +45,7 @@ api.interceptors.response.use(
   }
 );
 
-// Auth API calls
+// Auth API calls - update these to match our backend endpoints
 export const authAPI = {
   register: (userData) => api.post('/auth/register', userData),
   login: (credentials) => api.post('/auth/login', credentials),
@@ -51,7 +53,7 @@ export const authAPI = {
   getProfile: () => api.get('/auth/me'),
 };
 
-// Tutorials API calls
+// Keep other API functions from your original file
 export const tutorialsAPI = {
   getAll: (params) => api.get('/tutorials', { params }),
   getById: (id) => api.get(`/tutorials/${id}`),
@@ -60,7 +62,6 @@ export const tutorialsAPI = {
   delete: (id) => api.delete(`/tutorials/${id}`),
 };
 
-// Exercises API calls
 export const exercisesAPI = {
   getAll: (params) => api.get('/exercises', { params }),
   getById: (id) => api.get(`/exercises/${id}`),
@@ -70,6 +71,7 @@ export const exercisesAPI = {
 // User API calls
 export const userAPI = {
   updateProfile: (data) => api.put('/users/profile', data),
+  getProfile: () => api.get('/users/profile'),
   getProgress: () => api.get('/users/progress'),
   getBookmarks: () => api.get('/users/bookmarks'),
   addBookmark: (tutorialId) => api.post(`/users/bookmarks/${tutorialId}`),

@@ -1,63 +1,107 @@
 // src/context/AuthContext.jsx
 import { createContext, useState, useEffect } from 'react';
+import { authAPI } from '../services/api';
 
-// Create the context and export it
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
+  // Load user data from localStorage on mount
   useEffect(() => {
-    // Check if user is stored in localStorage
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-      setIsAuthenticated(true);
-    }
-    setLoading(false);
+    const loadUser = async () => {
+      setLoading(true);
+      try {
+        // Check if user is stored in localStorage
+        const storedUser = localStorage.getItem('user');
+        
+        if (storedUser) {
+          setUser(JSON.parse(storedUser));
+          setIsAuthenticated(true);
+          
+          // Verify with backend that token is still valid
+          try {
+            const { data } = await authAPI.getProfile();
+            setUser(data);
+            localStorage.setItem('user', JSON.stringify(data));
+          } catch (err) {
+            // Invalid token - remove from localStorage
+            localStorage.removeItem('user');
+            localStorage.removeItem('token');
+            setUser(null);
+            setIsAuthenticated(false);
+          }
+        }
+      } catch (err) {
+        console.error('Error loading user:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadUser();
   }, []);
 
-  const login = (userData) => {
-    // This would be replaced with actual API auth
-    // For demo purposes, let's add an admin role if username is "admin"
-    const isAdmin = userData.username === "admin";
-    
-    const userWithRole = {
-      ...userData,
-      role: isAdmin ? 'admin' : 'user'
-    };
-    
-    setUser(userWithRole);
-    setIsAuthenticated(true);
-    localStorage.setItem('user', JSON.stringify(userWithRole));
+  const register = async (userData) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const { data } = await authAPI.register(userData);
+      localStorage.setItem('user', JSON.stringify(data));
+      setUser(data);
+      setIsAuthenticated(true);
+      return data;
+    } catch (err) {
+      const errorMessage = err.response?.data?.message || 'Registration failed';
+      setError(errorMessage);
+      throw new Error(errorMessage);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const register = (userData) => {
-    // This would be replaced with actual API registration
-    const userWithRole = {
-      ...userData,
-      role: 'user' // New users are regular users by default
-    };
-    
-    setUser(userWithRole);
-    setIsAuthenticated(true);
-    localStorage.setItem('user', JSON.stringify(userWithRole));
+  const login = async (credentials) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const { data } = await authAPI.login(credentials);
+      localStorage.setItem('user', JSON.stringify(data));
+      setUser(data);
+      setIsAuthenticated(true);
+      return data;
+    } catch (err) {
+      const errorMessage = err.response?.data?.message || 'Login failed';
+      setError(errorMessage);
+      throw new Error(errorMessage);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const logout = () => {
-    setUser(null);
-    setIsAuthenticated(false);
-    localStorage.removeItem('user');
+  const logout = async () => {
+    try {
+      await authAPI.logout();
+    } catch (err) {
+      console.error('Error during logout:', err);
+    } finally {
+      localStorage.removeItem('user');
+      localStorage.removeItem('token');
+      setUser(null);
+      setIsAuthenticated(false);
+    }
   };
 
   return (
     <AuthContext.Provider
       value={{
         user,
+        setUser, // Added this to allow updating user data
         isAuthenticated,
         loading,
+        error,
         login,
         register,
         logout

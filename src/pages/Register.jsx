@@ -74,24 +74,19 @@ const RegisterPage = () => {
       setIsLoading(true);
       
       try {
-        // This would be replaced with actual API call
-        console.log('Registration form submitted:', formData);
-        
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Register user
-        register({
-          id: '1',
+        // Register with actual backend
+        await register({
           username: formData.username,
           email: formData.email,
+          password: formData.password
         });
         
         // Redirect to home page on success
         navigate('/');
       } catch (error) {
+        const errorMessage = error.message || 'Registration failed. Please try again.';
         setErrors({
-          form: 'Registration failed. Please try again.'
+          form: errorMessage
         });
       } finally {
         setIsLoading(false);
@@ -295,9 +290,6 @@ const RegisterPage = () => {
               </button>
             </div>
           </form>
-
-          {/* Social Login Section */}
-          
         </div>
       </div>
       
@@ -307,17 +299,8 @@ const RegisterPage = () => {
           <span>Back to home</span>
         </Link>
       </div>
-      
-      
     </div>
   );
 };
-
-const BenefitItem = ({ text }) => (
-  <div className="flex items-start bg-white p-2 rounded-md border shadow-sm">
-    <CheckCircle size={16} className="mt-0.5 text-emerald-500 flex-shrink-0" />
-    <span className="ml-2 text-xs sm:text-sm text-gray-600">{text}</span>
-  </div>
-);
 
 export default RegisterPage;

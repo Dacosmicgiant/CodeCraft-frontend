@@ -1,19 +1,91 @@
-// src/pages/Profile.jsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { User, Mail, Key, Bookmark, Award, Calendar, Clock, Edit, Save } from 'lucide-react';
+import { userAPI } from '../services/api';
+import { User, Mail, Key, Bookmark, Award, Calendar, Clock, Edit, Save, AlertCircle, ArrowRight, Check, BookOpen } from 'lucide-react';
 
 const ProfilePage = () => {
-  const { user, logout } = useAuth();
+  const { user, setUser } = useAuth();
   const [activeTab, setActiveTab] = useState('profile');
   const [isEditing, setIsEditing] = useState(false);
   const [profileData, setProfileData] = useState({
-    username: user?.username || 'JohnDoe',
-    email: user?.email || 'johndoe@example.com',
-    bio: user?.bio || 'Web developer passionate about frontend technologies.',
-    location: 'San Francisco, CA',
-    websiteUrl: 'https://johndoe.dev'
+    username: '',
+    email: '',
+    bio: '',
+    location: '',
+    websiteUrl: ''
   });
+  
+  const [bookmarks, setBookmarks] = useState([]);
+  const [progress, setProgress] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [successMessage, setSuccessMessage] = useState('');
+  
+  // Fetch user profile data
+  useEffect(() => {
+    if (user) {
+      setProfileData({
+        username: user.username || '',
+        email: user.email || '',
+        bio: user.bio || 'Web developer passionate about frontend technologies.',
+        location: user.location || 'San Francisco, CA',
+        websiteUrl: user.websiteUrl || 'https://johndoe.dev'
+      });
+    }
+  }, [user]);
+  
+  // Fetch bookmarks
+const fetchBookmarks = async () => {
+  if (activeTab === 'bookmarks') {
+    try {
+      setIsLoading(true);
+      const response = await userAPI.getBookmarks();
+      setBookmarks(response.data || []);
+    } catch (err) {
+      console.error('Error fetching bookmarks:', err);
+      // Handle the case where it might be an initial setup with no bookmarks
+      setBookmarks([]);
+      // Only show error if it's not just an empty response
+      if (err.response?.status !== 404) {
+        setError('Failed to load bookmarks. Please try again later.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }
+};
+  
+  // Fetch progress
+const fetchProgress = async () => {
+  if (activeTab === 'progress') {
+    try {
+      setIsLoading(true);
+      const response = await userAPI.getProgress();
+      setProgress(response.data || []);
+    } catch (err) {
+      console.error('Error fetching progress:', err);
+      // Handle the case where it might be an initial setup with no progress
+      setProgress([]);
+      // Only show error if it's not just an empty response
+      if (err.response?.status !== 404) {
+        setError('Failed to load progress data. Please try again later.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }
+};
+  
+  // Load data based on active tab
+  useEffect(() => {
+    setError(null);
+    
+    if (activeTab === 'bookmarks') {
+      fetchBookmarks();
+    } else if (activeTab === 'progress') {
+      fetchProgress();
+    }
+  }, [activeTab]);
   
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -23,43 +95,43 @@ const ProfilePage = () => {
     });
   };
   
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // This would be replaced with actual API call
-    console.log('Saving profile data:', profileData);
-    setIsEditing(false);
-  };
-  
-  // Sample progress data
-  const progress = {
-    completedTutorials: 15,
-    completedExercises: 28,
-    streak: 7,
-    totalTimeSpent: '32h 15m',
-    lastActive: 'Today'
-  };
-  
-  // Sample bookmarks data
-  const bookmarks = [
-    {
-      id: 1,
-      title: 'CSS Flexbox',
-      category: 'CSS',
-      date: '2 days ago'
-    },
-    {
-      id: 2,
-      title: 'JavaScript Promises',
-      category: 'JavaScript',
-      date: '1 week ago'
-    },
-    {
-      id: 3,
-      title: 'React Hooks',
-      category: 'React',
-      date: '2 weeks ago'
+    setError(null);
+    setSuccessMessage('');
+    
+    try {
+      setIsLoading(true);
+      
+      // Only send fields that are part of the API
+      const dataToUpdate = {
+        username: profileData.username,
+        email: profileData.email
+      };
+      
+      // Add password only if provided in a real implementation
+      // if (profileData.password) {
+      //   dataToUpdate.password = profileData.password;
+      // }
+      
+      const response = await userAPI.updateProfile(dataToUpdate);
+      
+      // Update the local user context with new data
+      setUser({
+        ...user,
+        username: response.data.username,
+        email: response.data.email
+      });
+      
+      setSuccessMessage('Profile updated successfully!');
+      setIsEditing(false);
+    } catch (err) {
+      console.error('Error updating profile:', err);
+      setError(err.response?.data?.message || 'Failed to update profile. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
-  ];
+  };
   
   return (
     <div className="p-4 md:p-6">
@@ -71,7 +143,7 @@ const ProfilePage = () => {
               <div className="w-32 h-32 bg-white rounded-full p-1">
                 <div className="w-full h-full bg-emerald-100 rounded-full flex items-center justify-center">
                   <span className="text-3xl font-bold text-emerald-600">
-                    {profileData.username.charAt(0).toUpperCase()}
+                    {profileData.username ? profileData.username.charAt(0).toUpperCase() : '?'}
                   </span>
                 </div>
               </div>
@@ -95,16 +167,25 @@ const ProfilePage = () => {
                     Edit Profile
                   </button>
                 ) : null}
-                
-                <button
-                  onClick={logout}
-                  className="px-4 py-2 bg-gray-100 text-gray-800 rounded-md hover:bg-gray-200 transition-colors"
-                >
-                  Sign Out
-                </button>
               </div>
             </div>
           </div>
+          
+          {/* Success Message */}
+          {successMessage && (
+            <div className="mx-6 mb-4 p-3 bg-green-50 text-green-700 text-sm rounded-md flex items-start">
+              <Check size={18} className="mr-2 mt-0.5 flex-shrink-0" />
+              <span>{successMessage}</span>
+            </div>
+          )}
+          
+          {/* Error Message */}
+          {error && (
+            <div className="mx-6 mb-4 p-3 bg-red-50 text-red-700 text-sm rounded-md flex items-start">
+              <AlertCircle size={18} className="mr-2 mt-0.5 flex-shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
           
           {/* Navigation Tabs */}
           <div className="border-t border-b">
@@ -219,15 +300,21 @@ const ProfilePage = () => {
                         type="button"
                         onClick={() => setIsEditing(false)}
                         className="px-4 py-2 bg-gray-100 text-gray-800 rounded-md hover:bg-gray-200 transition-colors"
+                        disabled={isLoading}
                       >
                         Cancel
                       </button>
                       <button
                         type="submit"
-                        className="px-4 py-2 flex items-center gap-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors"
+                        className="px-4 py-2 flex items-center gap-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors disabled:opacity-70"
+                        disabled={isLoading}
                       >
-                        <Save size={16} />
-                        Save Changes
+                        {isLoading ? 'Saving...' : (
+                          <>
+                            <Save size={16} />
+                            Save Changes
+                          </>
+                        )}
                       </button>
                     </div>
                   </form>
@@ -252,57 +339,82 @@ const ProfilePage = () => {
             {/* Progress Tab */}
             {activeTab === 'progress' && (
               <div>
-                <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                  <StatCard 
-                    icon={<BookOpen className="text-blue-500" />}
-                    label="Completed Tutorials"
-                    value={progress.completedTutorials.toString()}
-                    color="bg-blue-50"
-                  />
-                  <StatCard 
-                    icon={<Award className="text-yellow-500" />}
-                    label="Completed Exercises"
-                    value={progress.completedExercises.toString()}
-                    color="bg-yellow-50"
-                  />
-                  <StatCard 
-                    icon={<Calendar className="text-green-500" />}
-                    label="Current Streak"
-                    value={`${progress.streak} days`}
-                    color="bg-green-50"
-                  />
-                  <StatCard 
-                    icon={<Clock className="text-purple-500" />}
-                    label="Total Time Spent"
-                    value={progress.totalTimeSpent}
-                    color="bg-purple-50"
-                  />
-                </div>
-                
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Recent Activity</h3>
-                
-                <div className="border rounded-md overflow-hidden">
-                  <div className="px-4 py-3 bg-gray-50 border-b">
-                    <h4 className="font-medium text-gray-700">Activity Feed</h4>
+                {isLoading ? (
+                  <div className="flex justify-center py-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-emerald-600"></div>
                   </div>
-                  <div className="divide-y">
-                    <ActivityItem 
-                      title="Completed CSS Flexbox tutorial"
-                      time="Today at 9:30 AM"
-                      icon={<BookOpen size={16} className="text-blue-500" />}
-                    />
-                    <ActivityItem 
-                      title="Solved JavaScript Array Exercise"
-                      time="Yesterday at 3:45 PM"
-                      icon={<Award size={16} className="text-yellow-500" />}
-                    />
-                    <ActivityItem 
-                      title="Started React Components tutorial"
-                      time="2 days ago"
-                      icon={<BookOpen size={16} className="text-blue-500" />}
-                    />
-                  </div>
-                </div>
+                ) : (
+                  <>
+                    <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                      <StatCard 
+                        icon={<BookOpen className="text-blue-500" />}
+                        label="Completed Tutorials"
+                        value={progress.length || "0"}
+                        color="bg-blue-50"
+                      />
+                      <StatCard 
+                        icon={<Award className="text-yellow-500" />}
+                        label="Completed Exercises"
+                        value={"0"}
+                        color="bg-yellow-50"
+                      />
+                      <StatCard 
+                        icon={<Calendar className="text-green-500" />}
+                        label="Current Streak"
+                        value={"0 days"}
+                        color="bg-green-50"
+                      />
+                      <StatCard 
+                        icon={<Clock className="text-purple-500" />}
+                        label="Total Time Spent"
+                        value={"0h 0m"}
+                        color="bg-purple-50"
+                      />
+                    </div>
+                    
+                    <h3 className="text-lg font-medium text-gray-900 mb-4">Recent Activity</h3>
+                    
+                    {progress.length > 0 ? (
+                      <div className="border rounded-md overflow-hidden">
+                        <div className="px-4 py-3 bg-gray-50 border-b">
+                          <h4 className="font-medium text-gray-700">Progress Tracking</h4>
+                        </div>
+                        <div className="divide-y">
+                          {progress.map((item, index) => (
+                            <div key={index} className="py-3 px-4 flex justify-between items-center">
+                              <div>
+                                <h3 className="font-medium">{item.tutorial?.title || "Tutorial"}</h3>
+                                <div className="flex items-center text-sm text-gray-500">
+                                  <span>Progress: {item.completion}%</span>
+                                  <span className="mx-2">•</span>
+                                  <span>Last accessed: {new Date(item.lastAccessed).toLocaleDateString()}</span>
+                                </div>
+                              </div>
+                              <div className="w-24 bg-gray-200 rounded-full h-2.5">
+                                <div className="bg-emerald-600 h-2.5 rounded-full" style={{ width: `${item.completion}%` }}></div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center py-12 border rounded-md bg-gray-50">
+                        <Award size={48} className="mx-auto text-gray-400 mb-4" />
+                        <h3 className="text-lg font-medium text-gray-900 mb-1">No progress yet</h3>
+                        <p className="text-gray-600 mb-4">
+                          Start learning tutorials to track your progress
+                        </p>
+                        <a
+                          href="/tutorials"
+                          className="inline-flex items-center gap-1 text-emerald-600 hover:text-emerald-700 font-medium"
+                        >
+                          Browse Tutorials
+                          <ArrowRight size={16} />
+                        </a>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             )}
             
@@ -311,26 +423,26 @@ const ProfilePage = () => {
               <div>
                 <h3 className="text-lg font-medium text-gray-900 mb-4">Saved Tutorials</h3>
                 
-                {bookmarks.length > 0 ? (
+                {isLoading ? (
+                  <div className="flex justify-center py-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-emerald-600"></div>
+                  </div>
+                ) : bookmarks.length > 0 ? (
                   <div className="space-y-3">
-                    {bookmarks.map(bookmark => (
+                    {bookmarks.map((bookmark, index) => (
                       <div 
-                        key={bookmark.id}
+                        key={index}
                         className="flex items-center justify-between p-4 border rounded-md hover:bg-gray-50"
                       >
                         <div className="flex items-center">
                           <Bookmark size={18} className="text-emerald-500 mr-3" />
                           <div>
                             <h4 className="font-medium">{bookmark.title}</h4>
-                            <div className="flex items-center text-sm text-gray-500">
-                              <span>{bookmark.category}</span>
-                              <span className="mx-2">•</span>
-                              <span>Saved {bookmark.date}</span>
-                            </div>
+                            <div className="text-sm text-gray-500">{bookmark.description}</div>
                           </div>
                         </div>
                         <a
-                          href="#"
+                          href={`/tutorials/${bookmark.slug || bookmark._id}`}
                           className="text-emerald-600 hover:text-emerald-700 font-medium text-sm"
                         >
                           View
@@ -400,17 +512,6 @@ const StatCard = ({ icon, label, value, color }) => (
         <p className="text-sm font-medium text-gray-600">{label}</p>
         <p className="text-2xl font-bold">{value}</p>
       </div>
-    </div>
-  </div>
-);
-
-// Activity Item Component
-const ActivityItem = ({ title, time, icon }) => (
-  <div className="flex items-center px-4 py-3">
-    <div className="mr-3">{icon}</div>
-    <div>
-      <p className="font-medium">{title}</p>
-      <p className="text-sm text-gray-500">{time}</p>
     </div>
   </div>
 );

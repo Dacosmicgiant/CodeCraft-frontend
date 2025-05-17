@@ -1,14 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { BookOpen, Menu, Search, X, User, ChevronDown } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
-import scrollLock from './../../utils/scrollLock'; // Import the ScrollLock utility
+import scrollLock from './../../utils/scrollLock';
 
 const Navbar = ({ onMobileMenuToggle }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false); // New state for dropdown
+  const dropdownRef = useRef(null); // Reference for dropdown
+  
   const location = useLocation();
   const { user, logout } = useAuth();
   
@@ -27,7 +30,7 @@ const Navbar = ({ onMobileMenuToggle }) => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
   
-// Close mobile menu when navigating to a new page
+  // Close mobile menu when navigating to a new page
   useEffect(() => {
     if (isOpen) {
       // Disable scroll lock when navigating away
@@ -35,7 +38,22 @@ const Navbar = ({ onMobileMenuToggle }) => {
       setIsOpen(false);
     }
     setIsMobileSearchOpen(false);
-  }, [location.pathname]); // Removed isOpen from dependencies
+    setIsDropdownOpen(false); // Close dropdown on navigation
+  }, [location.pathname]);
+  
+  // Handle click outside to close dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
   
   // Toggle mobile menu and scroll lock
   const toggleMobileMenu = () => {
@@ -54,6 +72,11 @@ const Navbar = ({ onMobileMenuToggle }) => {
     if (onMobileMenuToggle) {
       onMobileMenuToggle(newState);
     }
+  };
+  
+  // Toggle dropdown menu
+  const toggleDropdown = () => {
+    setIsDropdownOpen(!isDropdownOpen);
   };
   
   // Clean up on unmount
@@ -110,26 +133,42 @@ const Navbar = ({ onMobileMenuToggle }) => {
             </NavLink>
             
             {user ? (
-              <div className="relative group">
-                <button className="flex items-center gap-2 px-3 py-1.5 text-white hover:bg-emerald-700 rounded-md">
+              <div className="relative" ref={dropdownRef}>
+                <button 
+                  onClick={toggleDropdown}
+                  className="flex items-center gap-2 px-3 py-1.5 text-white hover:bg-emerald-700 rounded-md"
+                >
                   <User size={18} />
                   <span>{user.username}</span>
-                  <ChevronDown size={16} />
+                  <ChevronDown size={16} className={`transform transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
                 </button>
-                <div className="absolute right-0 w-48 py-2 mt-2 bg-white rounded-md shadow-xl z-10 hidden group-hover:block">
-                  <Link to="/profile" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                    Profile
-                  </Link>
-                  <Link to="/dashboard" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                    Dashboard
-                  </Link>
-                  <button
-                    onClick={logout}
-                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                  >
-                    Logout
-                  </button>
-                </div>
+                {isDropdownOpen && (
+                  <div className="absolute right-0 w-48 py-2 mt-2 bg-white rounded-md shadow-xl z-10">
+                    <Link 
+                      to="/profile" 
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => setIsDropdownOpen(false)}
+                    >
+                      Profile
+                    </Link>
+                    <Link 
+                      to="/dashboard" 
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => setIsDropdownOpen(false)}
+                    >
+                      Dashboard
+                    </Link>
+                    <button
+                      onClick={() => {
+                        logout();
+                        setIsDropdownOpen(false);
+                      }}
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      Logout
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="flex items-center space-x-2">
