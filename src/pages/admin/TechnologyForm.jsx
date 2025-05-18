@@ -1,7 +1,8 @@
 // src/pages/admin/TechnologyForm.jsx
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save } from 'lucide-react';
+import { ArrowLeft, Save, AlertCircle, Check } from 'lucide-react';
+import { technologyAPI, domainAPI } from '../../services/api';
 
 const TechnologyForm = () => {
   const { id } = useParams();
@@ -18,43 +19,56 @@ const TechnologyForm = () => {
   const [domains, setDomains] = useState([]);
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDomainsLoading, setIsDomainsLoading] = useState(true);
+  const [apiError, setApiError] = useState(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
   
-  // Mock API call to get domains
+  // Fetch domains for dropdown
   useEffect(() => {
-    // In a real app, you'd fetch domains from an API
-    setIsLoading(true);
-    
-    // Simulate API delay
-    setTimeout(() => {
-      setDomains([
-        { id: 1, name: 'Web Development' },
-        { id: 2, name: 'Programming' },
-        { id: 3, name: 'Data Structures' }
-      ]);
-      setIsLoading(false);
-    }, 500);
+    fetchDomains();
   }, []);
   
-  // Mock API call to get technology data when editing
+  // Fetch technology when editing
   useEffect(() => {
-    if (isEditing && domains.length > 0) {
-      // In a real app, you'd fetch the technology data from an API
-      setIsLoading(true);
-      
-      // Simulate API delay
-      setTimeout(() => {
-        // Mock data
-        setFormData({
-          name: 'HTML',
-          description: 'Hypertext Markup Language for web pages',
-          domainId: '1',
-          icon: 'code'
-        });
-        setIsLoading(false);
-      }, 500);
+    if (isEditing) {
+      fetchTechnology();
     }
-  }, [isEditing, id, domains]);
+  }, [isEditing, id]);
+  
+  const fetchDomains = async () => {
+    try {
+      setIsDomainsLoading(true);
+      const response = await domainAPI.getAll();
+      setDomains(response.data);
+    } catch (err) {
+      console.error('Error fetching domains:', err);
+      setApiError('Failed to load domains. Please try again.');
+    } finally {
+      setIsDomainsLoading(false);
+    }
+  };
+  
+  const fetchTechnology = async () => {
+    try {
+      setIsLoading(true);
+      setApiError(null);
+      
+      const response = await technologyAPI.getById(id);
+      const tech = response.data;
+      
+      setFormData({
+        name: tech.name,
+        description: tech.description,
+        domainId: tech.domain._id || tech.domain,
+        icon: tech.icon || 'code'
+      });
+    } catch (err) {
+      console.error('Error fetching technology:', err);
+      setApiError('Failed to load technology data. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
   
   // Handle form input changes
   const handleChange = (e) => {
@@ -94,20 +108,46 @@ const TechnologyForm = () => {
   };
   
   // Handle form submission
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
     if (validateForm()) {
-      setIsSubmitting(true);
+      setIsLoading(true);
+      setApiError(null);
+      setSaveSuccess(false);
       
-      // Simulate API call
-      setTimeout(() => {
-        console.log('Submitting technology data:', formData);
-        setIsSubmitting(false);
+      try {
+        // Prepare data for API
+        const techData = {
+          name: formData.name,
+          description: formData.description,
+          domain: formData.domainId,
+          icon: formData.icon
+        };
         
-        // Redirect back to technology list
-        navigate('/admin/technologies');
-      }, 500);
+        if (isEditing) {
+          await technologyAPI.update(id, techData);
+        } else {
+          await technologyAPI.create(techData);
+        }
+        
+        setSaveSuccess(true);
+        
+        // Redirect after a short delay to show success message
+        setTimeout(() => {
+          navigate('/admin/technologies');
+        }, 1500);
+      } catch (err) {
+        console.error('Error saving technology:', err);
+        
+        if (err.response?.data?.message) {
+          setApiError(err.response.data.message);
+        } else {
+          setApiError('Failed to save technology. Please try again.');
+        }
+        
+        setIsLoading(false);
+      }
     }
   };
 
@@ -123,7 +163,23 @@ const TechnologyForm = () => {
         <h1 className="text-2xl font-bold">{isEditing ? 'Edit Technology' : 'Add New Technology'}</h1>
       </div>
       
-      {isLoading ? (
+      {/* Error Message */}
+      {apiError && (
+        <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-md flex items-center">
+          <AlertCircle size={18} className="mr-2" />
+          {apiError}
+        </div>
+      )}
+      
+      {/* Success Message */}
+      {saveSuccess && (
+        <div className="mb-6 p-4 bg-green-50 text-green-700 rounded-md flex items-center">
+          <Check size={18} className="mr-2" />
+          Technology {isEditing ? 'updated' : 'created'} successfully!
+        </div>
+      )}
+      
+      {isLoading && !formData.name ? (
         <div className="flex justify-center py-8">
           <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-emerald-600"></div>
         </div>
@@ -182,10 +238,11 @@ const TechnologyForm = () => {
                 className={`w-full px-3 py-2 border rounded-md ${
                   errors.domainId ? 'border-red-300' : 'border-gray-300'
                 } focus:outline-none focus:ring-2 focus:ring-emerald-500`}
+                disabled={isDomainsLoading}
               >
                 <option value="">Select a domain</option>
                 {domains.map(domain => (
-                  <option key={domain.id} value={domain.id.toString()}>
+                  <option key={domain._id} value={domain._id}>
                     {domain.name}
                   </option>
                 ))}
@@ -219,16 +276,17 @@ const TechnologyForm = () => {
                 type="button"
                 onClick={() => navigate('/admin/technologies')}
                 className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+                disabled={isLoading}
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isLoading || isDomainsLoading}
                 className="px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-2"
               >
                 <Save size={18} />
-                {isSubmitting ? 'Saving...' : 'Save Technology'}
+                {isLoading ? 'Saving...' : (isEditing ? 'Update Technology' : 'Save Technology')}
               </button>
             </div>
           </form>

@@ -78,4 +78,37 @@ export const userAPI = {
   removeBookmark: (tutorialId) => api.delete(`/users/bookmarks/${tutorialId}`),
 };
 
+// Add these to your existing api.js file
+export const domainAPI = {
+  getAll: () => api.get('/domains'),
+  getById: (id) => api.get(`/domains/${id}`),
+  create: (data) => api.post('/domains', data),
+  update: (id, data) => api.put(`/domains/${id}`, data),
+  delete: (id) => api.delete(`/domains/${id}`),
+};
+
+export const technologyAPI = {
+  getAll: (params) => api.get('/technologies', { params }),
+  getById: (id) => api.get(`/technologies/${id}`),
+  create: (data) => api.post('/technologies', data),
+  update: (id, data) => api.put(`/technologies/${id}`, data),
+  delete: (id) => api.delete(`/technologies/${id}`),
+};
+
+export const tutorialAPI = {
+  getAll: (params) => api.get('/tutorials', { params }),
+  getById: (id) => api.get(`/tutorials/${id}`),
+  create: (data) => api.post('/tutorials', data),
+  update: (id, data) => api.put(`/tutorials/${id}`, data),
+  delete: (id) => api.delete(`/tutorials/${id}`),
+};
+
+export const lessonAPI = {
+  getByTutorial: (tutorialId) => api.get(`/tutorials/${tutorialId}/lessons`),
+  getById: (id) => api.get(`/lessons/${id}`),
+  create: (tutorialId, data) => api.post(`/tutorials/${tutorialId}/lessons`, data),
+  update: (id, data) => api.put(`/lessons/${id}`, data),
+  updateContent: (id, content) => api.put(`/lessons/${id}/content`, { content }),
+  delete: (id) => api.delete(`/lessons/${id}`),
+};
 export default api;

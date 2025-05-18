@@ -1,4 +1,4 @@
-// Update src/App.jsx to include admin routes
+// Updates for App.jsx
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
@@ -24,6 +24,8 @@ import DomainManagement from './pages/admin/DomainManagement';
 import DomainForm from './pages/admin/DomainForm';
 import TechnologyManagement from './pages/admin/TechnologyManagement';
 import TechnologyForm from './pages/admin/TechnologyForm';
+import TutorialManagement from './pages/admin/TutorialManagement';
+import TutorialForm from './pages/admin/TutorialForm';
 import LessonManagement from './pages/admin/LessonManagement';
 import LessonEditor from './pages/admin/LessonEditor';
 
@@ -69,6 +71,9 @@ function App() {
               <Route path="technologies" element={<TechnologyManagement />} />
               <Route path="technologies/new" element={<TechnologyForm />} />
               <Route path="technologies/edit/:id" element={<TechnologyForm />} />
+              <Route path="tutorials" element={<TutorialManagement />} />
+              <Route path="tutorials/new" element={<TutorialForm />} />
+              <Route path="tutorials/edit/:id" element={<TutorialForm />} />
               <Route path="lessons" element={<LessonManagement />} />
               <Route path="lessons/new" element={<LessonEditor />} />
               <Route path="lessons/edit/:id" element={<LessonEditor />} />

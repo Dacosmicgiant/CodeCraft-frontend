@@ -1,7 +1,8 @@
 // src/pages/admin/DomainForm.jsx
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save } from 'lucide-react';
+import { ArrowLeft, Save, AlertCircle, Check } from 'lucide-react';
+import { domainAPI } from '../../services/api';
 
 const DomainForm = () => {
   const { id } = useParams();
@@ -16,25 +17,36 @@ const DomainForm = () => {
   
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
+  const [apiError, setApiError] = useState(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
   
-  // Mock API call to get domain data when editing
+  // Fetch domain data when editing
   useEffect(() => {
     if (isEditing) {
-      // In a real app, you'd fetch the domain data from an API
-      setIsLoading(true);
-      
-      // Simulate API delay
-      setTimeout(() => {
-        // Mock data
-        setFormData({
-          name: 'Web Development',
-          description: 'Frontend and backend web development topics',
-          icon: 'code'
-        });
-        setIsLoading(false);
-      }, 500);
+      fetchDomain();
     }
   }, [isEditing, id]);
+  
+  const fetchDomain = async () => {
+    try {
+      setIsLoading(true);
+      setApiError(null);
+      
+      const response = await domainAPI.getById(id);
+      const domain = response.data;
+      
+      setFormData({
+        name: domain.name,
+        description: domain.description,
+        icon: domain.icon || 'folder'
+      });
+    } catch (err) {
+      console.error('Error fetching domain:', err);
+      setApiError('Failed to load domain data. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
   
   // Handle form input changes
   const handleChange = (e) => {
@@ -70,20 +82,38 @@ const DomainForm = () => {
   };
   
   // Handle form submission
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
     if (validateForm()) {
       setIsLoading(true);
+      setApiError(null);
+      setSaveSuccess(false);
       
-      // Simulate API call
-      setTimeout(() => {
-        console.log('Submitting domain data:', formData);
-        setIsLoading(false);
+      try {
+        if (isEditing) {
+          await domainAPI.update(id, formData);
+        } else {
+          await domainAPI.create(formData);
+        }
         
-        // Redirect back to domain list
-        navigate('/admin/domains');
-      }, 500);
+        setSaveSuccess(true);
+        
+        // Redirect after a short delay to show success message
+        setTimeout(() => {
+          navigate('/admin/domains');
+        }, 1500);
+      } catch (err) {
+        console.error('Error saving domain:', err);
+        
+        if (err.response?.data?.message) {
+          setApiError(err.response.data.message);
+        } else {
+          setApiError('Failed to save domain. Please try again.');
+        }
+        
+        setIsLoading(false);
+      }
     }
   };
 
@@ -99,7 +129,23 @@ const DomainForm = () => {
         <h1 className="text-2xl font-bold">{isEditing ? 'Edit Domain' : 'Add New Domain'}</h1>
       </div>
       
-      {isLoading && !isEditing ? (
+      {/* Error Message */}
+      {apiError && (
+        <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-md flex items-center">
+          <AlertCircle size={18} className="mr-2" />
+          {apiError}
+        </div>
+      )}
+      
+      {/* Success Message */}
+      {saveSuccess && (
+        <div className="mb-6 p-4 bg-green-50 text-green-700 rounded-md flex items-center">
+          <Check size={18} className="mr-2" />
+          Domain {isEditing ? 'updated' : 'created'} successfully!
+        </div>
+      )}
+      
+      {isLoading && !formData.name ? (
         <div className="flex justify-center py-8">
           <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-emerald-600"></div>
         </div>
@@ -170,6 +216,7 @@ const DomainForm = () => {
                 type="button"
                 onClick={() => navigate('/admin/domains')}
                 className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+                disabled={isLoading}
               >
                 Cancel
               </button>
@@ -179,7 +226,7 @@ const DomainForm = () => {
                 className="px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-2"
               >
                 <Save size={18} />
-                {isLoading ? 'Saving...' : 'Save Domain'}
+                {isLoading ? 'Saving...' : (isEditing ? 'Update Domain' : 'Save Domain')}
               </button>
             </div>
           </form>
