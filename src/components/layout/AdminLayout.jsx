@@ -10,7 +10,8 @@ import {
   Users, 
   LogOut, 
   Menu, 
-  X 
+  X,
+  Book
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -41,6 +42,7 @@ const AdminLayout = () => {
           <SidebarLink to="/admin" icon={<LayoutDashboard size={20} />} text="Dashboard" isCollapsed={!isSidebarOpen} />
           <SidebarLink to="/admin/domains" icon={<Layers size={20} />} text="Domains" isCollapsed={!isSidebarOpen} />
           <SidebarLink to="/admin/technologies" icon={<BookOpen size={20} />} text="Technologies" isCollapsed={!isSidebarOpen} />
+          <SidebarLink to="/admin/tutorials" icon={<Book size={20} />} text="Tutorials" isCollapsed={!isSidebarOpen} />
           <SidebarLink to="/admin/lessons" icon={<FileText size={20} />} text="Lessons" isCollapsed={!isSidebarOpen} />
           <SidebarLink to="/admin/users" icon={<Users size={20} />} text="Users" isCollapsed={!isSidebarOpen} />
           <SidebarLink to="/admin/settings" icon={<Settings size={20} />} text="Settings" isCollapsed={!isSidebarOpen} />
