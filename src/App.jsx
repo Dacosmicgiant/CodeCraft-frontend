@@ -1,24 +1,24 @@
-// Updates for App.jsx
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import MainLayout from './components/layout/MainLayout';
 import AdminLayout from './components/layout/AdminLayout';
+
+// Pages
 import HomePage from './pages/Home';
 import LoginPage from './pages/Login';
 import RegisterPage from './pages/Register';
 import TutorialPage from './pages/Tutorial';
 import ProfilePage from './pages/Profile';
 import NotFoundPage from './pages/NotFound';
-import { useAuth } from './hooks/useAuth';
+import BookmarksPage from './pages/Bookmarks';
+import ProgressPage from './pages/Progress';
 
-// Import static tutorial pages
-import HTMLTutorial from './pages/tutorials/HTMLTutorial';
-import CSSTutorial from './pages/tutorials/CSSTutorial';
-import JavaScriptTutorial from './pages/tutorials/JavaScriptTutorial';
-import ReactTutorial from './pages/tutorials/ReactTutorial';
+// Dynamic tutorial pages
+import DynamicTutorial from './pages/tutorials/DynamicTutorial';
+import DynamicLesson from './pages/tutorials/DynamicLesson';
 
-// Import admin pages
+// Admin pages
 import AdminDashboard from './pages/admin/AdminDashboard';
 import DomainManagement from './pages/admin/DomainManagement';
 import DomainForm from './pages/admin/DomainForm';
@@ -28,6 +28,11 @@ import TutorialManagement from './pages/admin/TutorialManagement';
 import TutorialForm from './pages/admin/TutorialForm';
 import LessonManagement from './pages/admin/LessonManagement';
 import LessonEditor from './pages/admin/LessonEditor';
+import UserManagement from './pages/admin/UserManagement';
+import SettingsPage from './pages/admin/Settings';
+
+// Custom hook for auth
+import { useAuth } from './hooks/useAuth';
 
 // Protected route component
 const ProtectedRoute = ({ children, adminRequired = false }) => {
@@ -77,6 +82,8 @@ function App() {
               <Route path="lessons" element={<LessonManagement />} />
               <Route path="lessons/new" element={<LessonEditor />} />
               <Route path="lessons/edit/:id" element={<LessonEditor />} />
+              <Route path="users" element={<UserManagement />} />
+              <Route path="settings" element={<SettingsPage />} />
             </Route>
             
             {/* Main layout routes */}
@@ -84,21 +91,29 @@ function App() {
               <Route index element={<HomePage />} />
               <Route path="tutorials" element={<TutorialPage />} />
               
-              {/* Static tutorial pages */}
-              <Route path="tutorials/html" element={<HTMLTutorial />} />
-              <Route path="tutorials/css" element={<CSSTutorial />} />
-              <Route path="tutorials/javascript" element={<JavaScriptTutorial />} />
-              <Route path="tutorials/react" element={<ReactTutorial />} />
-              
-              {/* Dynamic tutorial routes (for future use) */}
-              <Route path="tutorials/:topic/:page" element={<TutorialPage />} />
-              
-              {/* Protected routes */}
+              {/* User related routes */}
               <Route path="profile" element={
                 <ProtectedRoute>
                   <ProfilePage />
                 </ProtectedRoute>
               } />
+              <Route path="bookmarks" element={
+                <ProtectedRoute>
+                  <BookmarksPage />
+                </ProtectedRoute>
+              } />
+              <Route path="progress" element={
+                <ProtectedRoute>
+                  <ProgressPage />
+                </ProtectedRoute>
+              } />
+              
+              
+              {/* Dynamic routes for tutorials and lessons */}
+              <Route path="tutorials/:domain/:technology" element={<DynamicTutorial />} />
+              <Route path="tutorials/:domain/:technology/:tutorialSlug" element={<DynamicTutorial />} />
+              <Route path="lessons/:lessonId" element={<DynamicLesson />} />
+              <Route path="tutorials/:tutorialId/lessons/:lessonSlug" element={<DynamicLesson />} />
             </Route>
             
             {/* 404 route */}
