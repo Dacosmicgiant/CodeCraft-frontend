@@ -1,3 +1,4 @@
+// src/components/layout/MainLayout.jsx (unchanged)
 import { useState, useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { ArrowRight, ArrowLeft } from 'lucide-react';
@@ -6,7 +7,7 @@ import Sidebar from '../common/Sidebar';
 import Footer from '../common/Footer';
 
 const MainLayout = () => {
-  const [currentTopic, setCurrentTopic] = useState('html');
+  const [currentTopic, setCurrentTopic] = useState(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
@@ -40,20 +41,15 @@ const MainLayout = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isSidebarOpen]);
   
-  // Sample topics data (would be fetched from API in real app)
-  const topics = [
-    { id: 'html', title: 'HTML', category: 'Web Development' },
-    { id: 'css', title: 'CSS', category: 'Web Development' },
-    { id: 'javascript', title: 'JavaScript', category: 'Web Development' },
-    { id: 'react', title: 'React', category: 'Web Development' },
-    { id: 'nodejs', title: 'Node.js', category: 'Web Development' },
-    { id: 'python', title: 'Python', category: 'Programming' },
-    { id: 'java', title: 'Java', category: 'Programming' },
-    { id: 'cpp', title: 'C++', category: 'Programming' },
-    { id: 'arrays', title: 'Arrays', category: 'Data Structures' },
-    { id: 'linked-lists', title: 'Linked Lists', category: 'Data Structures' },
-    { id: 'trees', title: 'Trees', category: 'Data Structures' },
-  ];
+  // Extract current topic from URL path
+  useEffect(() => {
+    const path = location.pathname;
+    const pathSegments = path.split('/');
+    
+    if (pathSegments.length > 2 && pathSegments[1] === 'tutorials') {
+      setCurrentTopic(pathSegments[2]);
+    }
+  }, [location.pathname]);
   
   // Handle mobile menu state changes from navbar
   const handleMobileMenuToggle = (isOpen) => {
@@ -87,7 +83,6 @@ const MainLayout = () => {
         >
           <div className="h-full bg-white border-r overflow-y-auto">
             <Sidebar
-              topics={topics}
               currentTopic={currentTopic}
               onTopicChange={handleTopicChange}
             />

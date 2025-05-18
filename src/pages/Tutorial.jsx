@@ -1,5 +1,6 @@
+// src/pages/Tutorial.jsx
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { 
   BookOpen, 
   Code, 
@@ -14,49 +15,52 @@ import {
   ArrowRight,
   Video,
   Bookmark,
-  Check
+  Check,
+  Loader,
+  AlertCircle
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
-
-// These utility functions need to be accessible to all components
-// Generate tutorial icon - moved outside component
-const getTutorialIcon = (type) => {
-  switch (type) {
-    case 'html':
-      return <span className="text-lg font-bold text-white">HTML</span>;
-    case 'css':
-      return <span className="text-lg font-bold text-white">CSS</span>;
-    case 'javascript':
-      return <span className="text-lg font-bold text-white">JS</span>;
-    case 'react':
-      return <span className="text-lg font-bold text-white">React</span>;
-    default:
-      return <BookOpen size={24} className="text-white" />;
-  }
-};
-
-// Generate difficulty badge - moved outside component
-const getDifficultyBadge = (level) => {
-  switch (level) {
-    case 'beginner':
-      return <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">Beginner</span>;
-    case 'intermediate':
-      return <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">Intermediate</span>;
-    case 'advanced':
-      return <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs font-medium rounded-full">Advanced</span>;
-    default:
-      return null;
-  }
-};
+import { tutorialAPI, domainAPI, technologyAPI } from '../services/api';
 
 const TutorialPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  
+  // State for tutorials, domains, and technologies
+  const [tutorials, setTutorials] = useState([]);
+  const [domains, setDomains] = useState([]);
+  const [technologies, setTechnologies] = useState([]);
+  
+  // Filter and search state
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [selectedTechnology, setSelectedTechnology] = useState('all');
   const [selectedDifficulty, setSelectedDifficulty] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // UI state
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [activeFilter, setActiveFilter] = useState(null);
   const [isMobile, setIsMobile] = useState(false);
+  
+  // Loading and error state
+  const [isLoading, setIsLoading] = useState(true);
+  const [isFiltering, setIsFiltering] = useState(false);
+  const [error, setError] = useState(null);
+  
+  // Parse query params for initial filter state
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const domainParam = params.get('domain');
+    const technologyParam = params.get('technology');
+    const difficultyParam = params.get('difficulty');
+    const searchParam = params.get('q');
+    
+    if (domainParam) setSelectedCategory(domainParam);
+    if (technologyParam) setSelectedTechnology(technologyParam);
+    if (difficultyParam) setSelectedDifficulty(difficultyParam);
+    if (searchParam) setSearchQuery(searchParam);
+  }, [location.search]);
   
   // Check if the device is mobile
   useEffect(() => {
@@ -74,120 +78,132 @@ const TutorialPage = () => {
     return () => window.removeEventListener('resize', checkIfMobile);
   }, []);
   
-  // Sample tutorial data
-  const tutorials = [
-    {
-      id: 'html-basics',
-      title: 'HTML Fundamentals',
-      description: 'Learn the basics of HTML, the building block of the web.',
-      category: 'web-dev',
-      difficulty: 'beginner',
-      lessonCount: 12,
-      estimatedTime: '3 hours',
-      popular: true,
-      rating: 4.8,
-      reviews: 235,
-      color: 'from-orange-500 to-red-500',
-      icon: 'html',
-      path: '/tutorials/html',
-      topics: ['HTML Structure', 'Tags', 'Attributes', 'Forms', 'Semantic HTML'],
-      progress: 0.6,
-      hasVideo: true
-    },
-    {
-      id: 'css-fundamentals',
-      title: 'CSS Styling',
-      description: 'Master CSS and create beautifully styled websites.',
-      category: 'web-dev',
-      difficulty: 'beginner',
-      lessonCount: 14,
-      estimatedTime: '4 hours',
-      popular: true,
-      rating: 4.7,
-      reviews: 184,
-      color: 'from-blue-500 to-cyan-500',
-      icon: 'css',
-      path: '/tutorials/css',
-      topics: ['Selectors', 'Box Model', 'Flexbox', 'Grid', 'Animations'],
-      progress: 0.3,
-      hasVideo: true
-    },
-    {
-      id: 'javascript-essentials',
-      title: 'JavaScript Essentials',
-      description: 'Learn JavaScript, the programming language of the web.',
-      category: 'web-dev',
-      difficulty: 'intermediate',
-      lessonCount: 18,
-      estimatedTime: '6 hours',
-      popular: true,
-      rating: 4.9,
-      reviews: 312,
-      color: 'from-yellow-400 to-yellow-600',
-      icon: 'javascript',
-      path: '/tutorials/javascript',
-      topics: ['Variables', 'Functions', 'Objects', 'Arrays', 'DOM Manipulation'],
-      progress: 0.1,
-      hasVideo: true
-    },
-    {
-      id: 'react-basics',
-      title: 'React Fundamentals',
-      description: 'Build modern user interfaces with React.',
-      category: 'web-dev',
-      difficulty: 'intermediate',
-      lessonCount: 16,
-      estimatedTime: '5 hours',
-      popular: true,
-      rating: 4.9,
-      reviews: 276,
-      color: 'from-cyan-500 to-blue-500',
-      icon: 'react',
-      path: '/tutorials/react',
-      topics: ['Components', 'Props', 'State', 'Hooks', 'Context'],
-      progress: 0,
-      hasVideo: true
-    }
-  ];
+  // Fetch domains, technologies, and tutorials
+  useEffect(() => {
+    fetchDomains();
+    fetchTechnologies();
+    fetchTutorials();
+  }, []);
   
-  // Filter tutorials based on selections
+  // Re-fetch tutorials when filters change
+  useEffect(() => {
+    fetchTutorials({
+      domain: selectedCategory !== 'all' ? selectedCategory : undefined,
+      technology: selectedTechnology !== 'all' ? selectedTechnology : undefined,
+      difficulty: selectedDifficulty !== 'all' ? selectedDifficulty : undefined,
+      search: searchQuery || undefined
+    });
+    
+    // Update URL parameters
+    const params = new URLSearchParams();
+    if (selectedCategory !== 'all') params.set('domain', selectedCategory);
+    if (selectedTechnology !== 'all') params.set('technology', selectedTechnology);
+    if (selectedDifficulty !== 'all') params.set('difficulty', selectedDifficulty);
+    if (searchQuery) params.set('q', searchQuery);
+    
+    const newUrl = params.toString() 
+      ? `${location.pathname}?${params.toString()}`
+      : location.pathname;
+    
+    window.history.replaceState({}, '', newUrl);
+    
+  }, [selectedCategory, selectedTechnology, selectedDifficulty, searchQuery]);
+  
+  const fetchDomains = async () => {
+    try {
+      const response = await domainAPI.getAll();
+      setDomains(response.data);
+    } catch (err) {
+      console.error('Error fetching domains:', err);
+      // Non-blocking error - continue with other data
+    }
+  };
+  
+  const fetchTechnologies = async () => {
+    try {
+      const response = await technologyAPI.getAll();
+      setTechnologies(response.data);
+    } catch (err) {
+      console.error('Error fetching technologies:', err);
+      // Non-blocking error - continue with other data
+    }
+  };
+  
+  const fetchTutorials = async (filters = {}) => {
+    try {
+      setIsFiltering(true);
+      if (!tutorials.length) setIsLoading(true);
+      setError(null);
+      
+      const response = await tutorialAPI.getAll(filters);
+      const tutorialsData = response.data.tutorials || response.data;
+      
+      setTutorials(tutorialsData);
+    } catch (err) {
+      console.error('Error fetching tutorials:', err);
+      setError('Failed to load tutorials. Please try again.');
+    } finally {
+      setIsLoading(false);
+      setIsFiltering(false);
+    }
+  };
+  
+  // Filter tutorials based on search if server-side filtering is not available
   const getFilteredTutorials = () => {
-    let filtered = [...tutorials];
-    
-    // Category filter
-    if (selectedCategory !== 'all') {
-      if (selectedCategory === 'popular') {
-        filtered = filtered.filter(t => t.popular);
-      } else {
-        filtered = filtered.filter(t => t.category === selectedCategory);
-      }
-    }
-    
-    // Difficulty filter
-    if (selectedDifficulty !== 'all') {
-      filtered = filtered.filter(t => t.difficulty === selectedDifficulty);
-    }
-    
-    // Search filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(t => 
-        t.title.toLowerCase().includes(query) || 
-        t.description.toLowerCase().includes(query) ||
-        t.topics.some(topic => topic.toLowerCase().includes(query))
-      );
-    }
-    
-    return filtered;
+    // If we're already filtering server-side, just return the current tutorials
+    return tutorials;
   };
   
   const filteredTutorials = getFilteredTutorials();
   
+  // Toggle filter menu
+  const toggleFilterMenu = (filterName) => {
+    if (activeFilter === filterName) {
+      setIsFilterOpen(false);
+      setActiveFilter(null);
+    } else {
+      setIsFilterOpen(true);
+      setActiveFilter(filterName);
+    }
+  };
+  
   // Clear all filters
   const clearFilters = () => {
     setSelectedCategory('all');
+    setSelectedTechnology('all');
     setSelectedDifficulty('all');
     setSearchQuery('');
+  };
+  
+  // Generate tutorial icon based on technology name or provided icon
+  const getTutorialIcon = (tutorial) => {
+    const techName = tutorial.technology?.name || '';
+    
+    if (techName.toLowerCase().includes('html')) {
+      return <span className="text-lg font-bold text-white">HTML</span>;
+    } else if (techName.toLowerCase().includes('css')) {
+      return <span className="text-lg font-bold text-white">CSS</span>;
+    } else if (techName.toLowerCase().includes('javascript')) {
+      return <span className="text-lg font-bold text-white">JS</span>;
+    } else if (techName.toLowerCase().includes('react')) {
+      return <span className="text-lg font-bold text-white">React</span>;
+    } else {
+      return <BookOpen size={24} className="text-white" />;
+    }
+  };
+  
+  // Generate difficulty badge
+  const getDifficultyBadge = (level) => {
+    switch (level) {
+      case 'beginner':
+        return <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">Beginner</span>;
+      case 'intermediate':
+        return <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">Intermediate</span>;
+      case 'advanced':
+        return <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs font-medium rounded-full">Advanced</span>;
+      default:
+        return null;
+    }
   };
   
   return (
@@ -209,6 +225,7 @@ const TutorialPage = () => {
             className="w-full py-3 pl-10 pr-4 text-gray-700 bg-white border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            disabled={isLoading}
           />
           <Search className="absolute left-3 top-3.5 text-gray-400" size={20} />
           {searchQuery && (
@@ -226,125 +243,224 @@ const TutorialPage = () => {
       <div className="mb-6">
         <div className="flex flex-wrap gap-2">
           {/* Category Pills */}
-          <CategoryPill 
-            active={selectedCategory === 'all'} 
-            onClick={() => setSelectedCategory('all')}
-          >
-            All
-          </CategoryPill>
-          <CategoryPill 
-            active={selectedCategory === 'web-dev'} 
-            onClick={() => setSelectedCategory('web-dev')}
-          >
-            Web Development
-          </CategoryPill>
-          <CategoryPill 
-            active={selectedCategory === 'popular'} 
-            onClick={() => setSelectedCategory('popular')}
-          >
-            <Star size={16} className="mr-1" />
-            Popular
-          </CategoryPill>
-          
-          {/* Filter Button */}
-          <button
-            onClick={() => setIsFilterOpen(!isFilterOpen)}
-            className="flex items-center gap-1 px-3 py-1.5 bg-white border rounded-full text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
-            <Filter size={16} />
-            <span>Filters</span>
-            <ChevronDown size={16} className={`transition-transform ${isFilterOpen ? 'rotate-180' : ''}`} />
-          </button>
-        </div>
-        
-        {/* Expanded Filter Panel */}
-        {isFilterOpen && (
-          <div className="mt-4 p-4 bg-white border rounded-lg shadow-sm">
-            <div className="mb-4">
-              <h3 className="text-sm font-medium text-gray-700 mb-2">Difficulty</h3>
-              <div className="flex flex-wrap gap-2">
-                <CategoryPill 
-                  active={selectedDifficulty === 'all'} 
-                  onClick={() => setSelectedDifficulty('all')}
-                >
-                  All Levels
-                </CategoryPill>
-                <CategoryPill 
-                  active={selectedDifficulty === 'beginner'} 
-                  onClick={() => setSelectedDifficulty('beginner')}
-                  className="bg-green-100 text-green-800"
-                >
-                  Beginner
-                </CategoryPill>
-                <CategoryPill 
-                  active={selectedDifficulty === 'intermediate'} 
-                  onClick={() => setSelectedDifficulty('intermediate')}
-                  className="bg-blue-100 text-blue-800"
-                >
-                  Intermediate
-                </CategoryPill>
-                <CategoryPill 
-                  active={selectedDifficulty === 'advanced'} 
-                  onClick={() => setSelectedDifficulty('advanced')}
-                  className="bg-purple-100 text-purple-800"
-                >
-                  Advanced
-                </CategoryPill>
-              </div>
-            </div>
+          <div className="relative">
+            <button
+              onClick={() => toggleFilterMenu('domain')}
+              className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-medium ${
+                selectedCategory !== 'all' 
+                  ? 'bg-emerald-100 text-emerald-700 border-2 border-emerald-500' 
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200'
+              }`}
+              disabled={isLoading || domains.length === 0}
+            >
+              <span>
+                {selectedCategory === 'all' 
+                  ? 'All Domains' 
+                  : domains.find(d => d._id === selectedCategory)?.name || 'Domain'}
+              </span>
+              <ChevronDown size={16} className={`transition-transform ${activeFilter === 'domain' && isFilterOpen ? 'rotate-180' : ''}`} />
+            </button>
             
-            {/* Format Filter */}
-            <div>
-              <h3 className="text-sm font-medium text-gray-700 mb-2">Format</h3>
-              <div className="flex flex-wrap gap-2">
-                <CategoryPill className="bg-red-50 text-red-700">
-                  <Video size={14} className="mr-1" />
-                  With Videos
-                </CategoryPill>
-                <CategoryPill className="bg-blue-50 text-blue-700">
-                  <Code size={14} className="mr-1" />
-                  Interactive
-                </CategoryPill>
-              </div>
-            </div>
-            
-            {/* Clear Filters Button */}
-            {(selectedCategory !== 'all' || selectedDifficulty !== 'all' || searchQuery) && (
-              <div className="mt-4 flex justify-end">
-                <button
-                  onClick={clearFilters}
-                  className="flex items-center gap-1 px-3 py-1.5 bg-red-50 text-red-600 rounded-md text-sm font-medium hover:bg-red-100"
-                >
-                  <X size={16} />
-                  Clear Filters
-                </button>
+            {activeFilter === 'domain' && isFilterOpen && (
+              <div className="absolute z-20 mt-1 w-48 bg-white border rounded-md shadow-lg">
+                <div className="p-2 max-h-60 overflow-y-auto">
+                  <div 
+                    className={`px-3 py-2 rounded-md cursor-pointer ${selectedCategory === 'all' ? 'bg-emerald-100 text-emerald-700' : 'hover:bg-gray-100'}`}
+                    onClick={() => {
+                      setSelectedCategory('all');
+                      setIsFilterOpen(false);
+                    }}
+                  >
+                    All Domains
+                  </div>
+                  {domains.map(domain => (
+                    <div 
+                      key={domain._id}
+                      className={`px-3 py-2 rounded-md cursor-pointer ${selectedCategory === domain._id ? 'bg-emerald-100 text-emerald-700' : 'hover:bg-gray-100'}`}
+                      onClick={() => {
+                        setSelectedCategory(domain._id);
+                        setIsFilterOpen(false);
+                      }}
+                    >
+                      {domain.name}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
-        )}
+          
+          {/* Technology Pills */}
+          <div className="relative">
+            <button
+              onClick={() => toggleFilterMenu('technology')}
+              className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-medium ${
+                selectedTechnology !== 'all' 
+                  ? 'bg-emerald-100 text-emerald-700 border-2 border-emerald-500' 
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200'
+              }`}
+              disabled={isLoading || technologies.length === 0}
+            >
+              <span>
+                {selectedTechnology === 'all' 
+                  ? 'All Technologies' 
+                  : technologies.find(t => t._id === selectedTechnology)?.name || 'Technology'}
+              </span>
+              <ChevronDown size={16} className={`transition-transform ${activeFilter === 'technology' && isFilterOpen ? 'rotate-180' : ''}`} />
+            </button>
+            
+            {activeFilter === 'technology' && isFilterOpen && (
+              <div className="absolute z-20 mt-1 w-48 bg-white border rounded-md shadow-lg">
+                <div className="p-2 max-h-60 overflow-y-auto">
+                  <div 
+                    className={`px-3 py-2 rounded-md cursor-pointer ${selectedTechnology === 'all' ? 'bg-emerald-100 text-emerald-700' : 'hover:bg-gray-100'}`}
+                    onClick={() => {
+                      setSelectedTechnology('all');
+                      setIsFilterOpen(false);
+                    }}
+                  >
+                    All Technologies
+                  </div>
+                  {technologies.map(tech => (
+                    <div 
+                      key={tech._id}
+                      className={`px-3 py-2 rounded-md cursor-pointer ${selectedTechnology === tech._id ? 'bg-emerald-100 text-emerald-700' : 'hover:bg-gray-100'}`}
+                      onClick={() => {
+                        setSelectedTechnology(tech._id);
+                        setIsFilterOpen(false);
+                      }}
+                    >
+                      {tech.name}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          
+          {/* Difficulty Pills */}
+          <div className="relative">
+            <button
+              onClick={() => toggleFilterMenu('difficulty')}
+              className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-medium ${
+                selectedDifficulty !== 'all' 
+                  ? 'bg-emerald-100 text-emerald-700 border-2 border-emerald-500' 
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200'
+              }`}
+              disabled={isLoading}
+            >
+              <span>
+                {selectedDifficulty === 'all' 
+                  ? 'All Levels' 
+                  : selectedDifficulty.charAt(0).toUpperCase() + selectedDifficulty.slice(1)}
+              </span>
+              <ChevronDown size={16} className={`transition-transform ${activeFilter === 'difficulty' && isFilterOpen ? 'rotate-180' : ''}`} />
+            </button>
+            
+            {activeFilter === 'difficulty' && isFilterOpen && (
+              <div className="absolute z-20 mt-1 w-48 bg-white border rounded-md shadow-lg">
+                <div className="p-2">
+                  <div 
+                    className={`px-3 py-2 rounded-md cursor-pointer ${selectedDifficulty === 'all' ? 'bg-emerald-100 text-emerald-700' : 'hover:bg-gray-100'}`}
+                    onClick={() => {
+                      setSelectedDifficulty('all');
+                      setIsFilterOpen(false);
+                    }}
+                  >
+                    All Levels
+                  </div>
+                  <div 
+                    className={`px-3 py-2 rounded-md cursor-pointer ${selectedDifficulty === 'beginner' ? 'bg-emerald-100 text-emerald-700' : 'hover:bg-gray-100'}`}
+                    onClick={() => {
+                      setSelectedDifficulty('beginner');
+                      setIsFilterOpen(false);
+                    }}
+                  >
+                    Beginner
+                  </div>
+                  <div 
+                    className={`px-3 py-2 rounded-md cursor-pointer ${selectedDifficulty === 'intermediate' ? 'bg-emerald-100 text-emerald-700' : 'hover:bg-gray-100'}`}
+                    onClick={() => {
+                      setSelectedDifficulty('intermediate');
+                      setIsFilterOpen(false);
+                    }}
+                  >
+                    Intermediate
+                  </div>
+                  <div 
+                    className={`px-3 py-2 rounded-md cursor-pointer ${selectedDifficulty === 'advanced' ? 'bg-emerald-100 text-emerald-700' : 'hover:bg-gray-100'}`}
+                    onClick={() => {
+                      setSelectedDifficulty('advanced');
+                      setIsFilterOpen(false);
+                    }}
+                  >
+                    Advanced
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+          
+          {/* Clear Filters Button - only show if filters are active */}
+          {(selectedCategory !== 'all' || selectedTechnology !== 'all' || selectedDifficulty !== 'all' || searchQuery) && (
+            <button
+              onClick={clearFilters}
+              className="flex items-center gap-1 px-3 py-1.5 bg-red-50 text-red-600 rounded-full text-sm font-medium hover:bg-red-100"
+              disabled={isLoading || isFiltering}
+            >
+              <X size={14} />
+              Clear Filters
+            </button>
+          )}
+        </div>
       </div>
+      
+      {/* Error Message */}
+      {error && (
+        <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-md flex items-center">
+          <AlertCircle size={18} className="mr-2 flex-shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
       
       {/* Results Count */}
       <div className="mb-4 flex justify-between items-center">
         <p className="text-sm text-gray-600">
-          {filteredTutorials.length} {filteredTutorials.length === 1 ? 'tutorial' : 'tutorials'} found
-          {searchQuery && <span> for "{searchQuery}"</span>}
+          {isFiltering ? (
+            <span className="flex items-center">
+              <Loader size={14} className="animate-spin mr-2" />
+              Filtering tutorials...
+            </span>
+          ) : (
+            <>
+              {filteredTutorials.length} {filteredTutorials.length === 1 ? 'tutorial' : 'tutorials'} found
+              {searchQuery && <span> for "{searchQuery}"</span>}
+            </>
+          )}
         </p>
       </div>
       
+      {/* Loading State */}
+      {isLoading && (
+        <div className="text-center py-12">
+          <Loader size={36} className="animate-spin mx-auto mb-4 text-emerald-500" />
+          <p className="text-gray-500">Loading tutorials...</p>
+        </div>
+      )}
+      
       {/* Tutorial Cards Grid */}
-      {filteredTutorials.length > 0 ? (
+      {!isLoading && filteredTutorials.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredTutorials.map(tutorial => (
             <TutorialCard 
-              key={tutorial.id} 
+              key={tutorial._id} 
               tutorial={tutorial} 
-              onClick={() => navigate(tutorial.path)}
+              onClick={() => navigate(`/tutorials/${tutorial.slug || tutorial._id}`)}
               user={user}
             />
           ))}
         </div>
-      ) : (
+      ) : !isLoading && (
         <div className="text-center py-12 bg-gray-50 rounded-lg border">
           <div className="mx-auto w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mb-4">
             <Search size={24} className="text-gray-400" />
@@ -362,25 +478,9 @@ const TutorialPage = () => {
           </button>
         </div>
       )}
-      
-      
     </div>
   );
 };
-
-// Category Pill Component
-const CategoryPill = ({ children, active, onClick, className = '' }) => (
-  <button
-    onClick={onClick}
-    className={`flex items-center px-3 py-1.5 rounded-full text-sm font-medium ${
-      active 
-        ? 'bg-emerald-100 text-emerald-700 border-2 border-emerald-500' 
-        : `bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200 ${className}`
-    }`}
-  >
-    {children}
-  </button>
-);
 
 // Feature Item Component
 const Feature = ({ children }) => (
@@ -392,25 +492,88 @@ const Feature = ({ children }) => (
 
 // Tutorial Card Component
 const TutorialCard = ({ tutorial, onClick, user }) => {
+  // Determine tutorial color based on technology
+  const getTutorialColor = (tutorial) => {
+    const techName = tutorial.technology?.name?.toLowerCase() || '';
+    
+    if (techName.includes('html')) {
+      return 'from-orange-500 to-red-500';
+    } else if (techName.includes('css')) {
+      return 'from-blue-500 to-cyan-500';
+    } else if (techName.includes('javascript')) {
+      return 'from-yellow-400 to-yellow-600';
+    } else if (techName.includes('react')) {
+      return 'from-cyan-500 to-blue-500';
+    } else {
+      return 'from-emerald-500 to-teal-600';
+    }
+  };
+  
+  // Get user progress for this tutorial
+  const getUserProgress = () => {
+    // This would come from the user object or a separate API call
+    // For now, we'll return a random value for demonstration
+    return Math.random();
+  };
+  
+  // Determine if the tutorial has videos
+  const hasVideo = tutorial.lessons?.some(lesson => 
+    lesson.content?.some(block => block.type === 'video')
+  );
+  
+  // Calculate the tutorial's estimated time in minutes
+  const estimatedTimeMinutes = tutorial.estimatedTime || 30;
+  
+  // Format the estimated time as hours and minutes
+  const formatEstimatedTime = (minutes) => {
+    if (minutes < 60) {
+      return `${minutes} min`;
+    }
+    
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    
+    if (remainingMinutes === 0) {
+      return `${hours} ${hours === 1 ? 'hour' : 'hours'}`;
+    }
+    
+    return `${hours}h ${remainingMinutes}m`;
+  };
+  
   return (
     <div 
       className="flex flex-col rounded-lg border overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer bg-white"
       onClick={onClick}
     >
       {/* Card Header with gradient background */}
-      <div className={`bg-gradient-to-r ${tutorial.color} p-4 h-20`}>
+      <div className={`bg-gradient-to-r ${getTutorialColor(tutorial)} p-4 h-20`}>
         <div className="flex justify-between items-center">
           <div className="w-12 h-12 rounded-full bg-white bg-opacity-20 backdrop-blur-sm flex items-center justify-center">
-            {getTutorialIcon(tutorial.icon)}
+            {tutorial.technology?.name ? (
+              <span className="text-lg font-bold text-white">
+                {tutorial.technology.name.substring(0, 2).toUpperCase()}
+              </span>
+            ) : (
+              <BookOpen size={20} className="text-white" />
+            )}
           </div>
           
           <div>
-            {getDifficultyBadge(tutorial.difficulty)}
+            {tutorial.difficulty && (
+              <div className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                tutorial.difficulty === 'beginner' ? 'bg-green-100 text-green-800' :
+                tutorial.difficulty === 'intermediate' ? 'bg-blue-100 text-blue-800' :
+                tutorial.difficulty === 'advanced' ? 'bg-purple-100 text-purple-800' :
+                'bg-gray-100 text-gray-800'
+              }`}>
+                {tutorial.difficulty.charAt(0).toUpperCase() + tutorial.difficulty.slice(1)}
+              </div>
+            )}
             
-            {tutorial.popular && (
-              <div className="mt-1.5 inline-flex items-center px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full">
-                <Star size={12} className="mr-1" />
-                Popular
+            {hasVideo && (
+              <div className="mt-1.5 inline-flex items-center px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full">
+                <Video size={12} className="mr-1" />
+                Video
               </div>
             )}
           </div>
@@ -426,33 +589,47 @@ const TutorialCard = ({ tutorial, onClick, user }) => {
         <div className="flex justify-between text-xs text-gray-500 mb-3">
           <div className="flex items-center">
             <BookOpen size={14} className="mr-1" />
-            <span>{tutorial.lessonCount} lessons</span>
+            <span>{tutorial.lessons?.length || 0} lessons</span>
           </div>
           <div className="flex items-center">
             <Clock size={14} className="mr-1" />
-            <span>{tutorial.estimatedTime}</span>
+            <span>{formatEstimatedTime(estimatedTimeMinutes)}</span>
           </div>
         </div>
         
         {/* Progress bar (for logged in users) */}
-        {user && tutorial.progress > 0 ? (
+        {user && (
           <div className="mb-3">
             <div className="flex justify-between text-xs mb-1">
               <span className="font-medium text-gray-700">Your progress</span>
-              <span className="text-emerald-600">{Math.round(tutorial.progress * 100)}%</span>
+              <span className="text-emerald-600">{Math.round(getUserProgress() * 100)}%</span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-1.5">
               <div 
                 className="bg-emerald-600 h-1.5 rounded-full"
-                style={{ width: `${tutorial.progress * 100}%` }}
+                style={{ width: `${getUserProgress() * 100}%` }}
               ></div>
             </div>
           </div>
-        ) : null}
+        )}
+        
+        {/* Tags */}
+        {tutorial.tags && tutorial.tags.length > 0 && (
+          <div className="flex flex-wrap gap-1 mb-3">
+            {tutorial.tags.map((tag, index) => (
+              <span 
+                key={index}
+                className="inline-block px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded-full"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
         
         {/* Action button */}
         <div className="flex items-center text-emerald-600 font-medium text-sm">
-          <span>{user && tutorial.progress > 0 ? 'Continue Learning' : 'Start Learning'}</span>
+          <span>{user && getUserProgress() > 0 ? 'Continue Learning' : 'Start Learning'}</span>
           <ArrowRight size={16} className="ml-1" />
         </div>
       </div>
