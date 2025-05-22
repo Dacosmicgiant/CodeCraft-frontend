@@ -356,7 +356,7 @@ const DynamicTutorial = () => {
     };
   };
 
-  // Generate breadcrumb navigation
+  // Generate breadcrumb navigation - FIXED VERSION
   const getBreadcrumbs = () => {
     const breadcrumbs = [
       { label: 'Tutorials', href: '/tutorials' }
@@ -365,7 +365,7 @@ const DynamicTutorial = () => {
     if (domainData) {
       breadcrumbs.push({ 
         label: domainData.name, 
-        href: `/tutorials/${domainData.slug || domainData._id}` 
+        href: `/domains/${domainData.slug || domainData._id}` // FIXED: Use /domains/ instead of /tutorials/
       });
     }
 
@@ -497,10 +497,13 @@ const DynamicTutorial = () => {
         <h1 className="text-2xl md:text-3xl font-bold mb-3">{tutorial.title}</h1>
         <div className="flex flex-wrap items-center gap-3 text-sm text-gray-600 mb-4">
           {(domainData || tutorial.domain) && (
-            <span className="flex items-center">
+            <Link
+              to={`/domains/${domainData?.slug || domainData?._id || (tutorial.domain?._id || tutorial.domain)}`}
+              className="flex items-center text-emerald-600 hover:text-emerald-700 hover:underline"
+            >
               <BookOpen size={16} className="mr-1" />
               {domainData?.name || tutorial.domain?.name || tutorial.domain}
-            </span>
+            </Link>
           )}
           {(technologyData || tutorial.technology) && (
             <Link

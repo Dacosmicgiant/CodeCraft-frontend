@@ -9,8 +9,8 @@ const Navbar = ({ onMobileMenuToggle }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false); // New state for dropdown
-  const dropdownRef = useRef(null); // Reference for dropdown
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
   
   const location = useLocation();
   const { user, logout } = useAuth();
@@ -33,12 +33,11 @@ const Navbar = ({ onMobileMenuToggle }) => {
   // Close mobile menu when navigating to a new page
   useEffect(() => {
     if (isOpen) {
-      // Disable scroll lock when navigating away
       scrollLock.disable(); 
       setIsOpen(false);
     }
     setIsMobileSearchOpen(false);
-    setIsDropdownOpen(false); // Close dropdown on navigation
+    setIsDropdownOpen(false);
   }, [location.pathname]);
   
   // Handle click outside to close dropdown
@@ -61,14 +60,11 @@ const Navbar = ({ onMobileMenuToggle }) => {
     setIsOpen(newState);
     
     if (newState) {
-      // Enable scroll lock
       scrollLock.enable();
     } else {
-      // Disable scroll lock
       scrollLock.disable();
     }
     
-    // Notify parent component about mobile menu state
     if (onMobileMenuToggle) {
       onMobileMenuToggle(newState);
     }
@@ -82,7 +78,6 @@ const Navbar = ({ onMobileMenuToggle }) => {
   // Clean up on unmount
   useEffect(() => {
     return () => {
-      // Ensure scroll lock is disabled when component unmounts
       scrollLock.disable();
     };
   }, []);
@@ -90,8 +85,10 @@ const Navbar = ({ onMobileMenuToggle }) => {
   // Handle search input
   const handleSearch = (e) => {
     e.preventDefault();
-    // Implement search functionality
-    console.log('Searching for:', searchQuery);
+    if (searchQuery.trim()) {
+      // Navigate to tutorials page with search query
+      window.location.href = `/tutorials?q=${encodeURIComponent(searchQuery)}`;
+    }
     setIsMobileSearchOpen(false);
   };
 
@@ -152,11 +149,18 @@ const Navbar = ({ onMobileMenuToggle }) => {
                       Profile
                     </Link>
                     <Link 
-                      to="/dashboard" 
+                      to="/progress" 
                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       onClick={() => setIsDropdownOpen(false)}
                     >
-                      Dashboard
+                      Progress
+                    </Link>
+                    <Link 
+                      to="/bookmarks" 
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => setIsDropdownOpen(false)}
+                    >
+                      Bookmarks
                     </Link>
                     <button
                       onClick={() => {
@@ -204,7 +208,7 @@ const Navbar = ({ onMobileMenuToggle }) => {
           </div>
         </div>
         
-        {/* Mobile Search Bar - Shown when search is toggled */}
+        {/* Mobile Search Bar */}
         {isMobileSearchOpen && (
           <div className="px-4 pb-3 md:hidden">
             <form onSubmit={handleSearch}>
@@ -239,7 +243,6 @@ const Navbar = ({ onMobileMenuToggle }) => {
                 Tutorials
               </MobileNavLink>
               
-              {/* More menu items can be added here */}
               <MobileNavLink to="/about" active={isActive('/about')}>
                 About
               </MobileNavLink>
@@ -268,14 +271,18 @@ const Navbar = ({ onMobileMenuToggle }) => {
                     Profile
                   </MobileNavLink>
                   
-                  <MobileNavLink to="/dashboard" active={isActive('/dashboard')}>
-                    Dashboard
+                  <MobileNavLink to="/progress" active={isActive('/progress')}>
+                    Progress
+                  </MobileNavLink>
+                  
+                  <MobileNavLink to="/bookmarks" active={isActive('/bookmarks')}>
+                    Bookmarks
                   </MobileNavLink>
                   
                   <button
                     onClick={() => {
                       logout();
-                      toggleMobileMenu(); // Close menu after logout
+                      toggleMobileMenu();
                     }}
                     className="mt-2 w-full text-left py-3 px-4 bg-white text-emerald-700 rounded-lg font-medium"
                   >
@@ -287,7 +294,7 @@ const Navbar = ({ onMobileMenuToggle }) => {
                   <Link
                     to="/login"
                     className="w-full py-3 px-4 bg-emerald-700 text-white text-center rounded-lg font-medium hover:bg-emerald-600"
-                    onClick={toggleMobileMenu} // Close menu when clicking link
+                    onClick={toggleMobileMenu}
                   >
                     Login
                   </Link>
@@ -295,7 +302,7 @@ const Navbar = ({ onMobileMenuToggle }) => {
                   <Link
                     to="/register"
                     className="w-full py-3 px-4 bg-white text-emerald-700 text-center rounded-lg font-medium hover:bg-gray-100"
-                    onClick={toggleMobileMenu} // Close menu when clicking link
+                    onClick={toggleMobileMenu}
                   >
                     Sign Up
                   </Link>
@@ -323,7 +330,7 @@ const NavLink = ({ children, to, active }) => (
   </Link>
 );
 
-// Mobile Navigation Link - fullwidth, larger text
+// Mobile Navigation Link
 const MobileNavLink = ({ children, to, active }) => (
   <Link
     to={to}

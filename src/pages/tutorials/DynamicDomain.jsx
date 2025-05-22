@@ -1,25 +1,16 @@
+// src/pages/tutorials/DynamicDomain.jsx
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, 
   BookOpen, 
-  Clock, 
-  BarChart, 
-  Star,
-  Play,
-  Bookmark,
+  Code, 
   Users,
-  Code,
-  AlertCircle,
-  Loader,
+  Star,
   ArrowRight,
-  Search,
-  Filter,
-  SortAsc,
-  Folder,
-  ChevronRight,
-  Award,
-  Target
+  Loader,
+  AlertCircle,
+  Bookmark
 } from 'lucide-react';
 import { domainAPI, technologyAPI, tutorialAPI, userAPI } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
@@ -36,14 +27,7 @@ const DynamicDomain = () => {
   const [userProgress, setUserProgress] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  
-  // Filter states
-  const [selectedTechnology, setSelectedTechnology] = useState('all');
-  const [difficultyFilter, setDifficultyFilter] = useState('all');
-  const [sortBy, setSortBy] = useState('-createdAt');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState('tutorials'); // 'tutorials' or 'technologies'
-  
+
   useEffect(() => {
     fetchDomainData();
   }, [domainSlug]);
@@ -54,13 +38,6 @@ const DynamicDomain = () => {
     }
   }, [isAuthenticated]);
 
-  useEffect(() => {
-    if (domain) {
-      fetchTechnologies();
-      fetchTutorials();
-    }
-  }, [domain, selectedTechnology, difficultyFilter, sortBy, searchQuery]);
-
   const fetchDomainData = async () => {
     try {
       setIsLoading(true);
@@ -69,11 +46,24 @@ const DynamicDomain = () => {
       // Fetch domain details
       const domainResponse = await domainAPI.getById(domainSlug);
       const domainData = domainResponse.data;
-      
       setDomain(domainData);
       
+      // Fetch technologies for this domain
+      const technologiesResponse = await technologyAPI.getAll({ domain: domainData._id });
+      const technologiesData = technologiesResponse.data;
+      setTechnologies(technologiesData);
+      
+      // Fetch tutorials for this domain
+      const tutorialsResponse = await tutorialAPI.getAll({ 
+        domain: domainData._id,
+        limit: 12,
+        sort: '-createdAt'  
+      });
+      const tutorialsData = tutorialsResponse.data.tutorials || tutorialsResponse.data;
+      setTutorials(tutorialsData);
+      
     } catch (err) {
-      console.error('Error fetching domain:', err);
+      console.error('Error fetching domain data:', err);
       setError('Domain not found or failed to load.');
     } finally {
       setIsLoading(false);
@@ -91,45 +81,6 @@ const DynamicDomain = () => {
       setUserProgress(progressRes.data || []);
     } catch (err) {
       console.warn('Could not fetch user data:', err);
-    }
-  };
-
-  const fetchTechnologies = async () => {
-    try {
-      const technologiesResponse = await technologyAPI.getAll({ domain: domain._id });
-      const technologiesData = technologiesResponse.data;
-      setTechnologies(technologiesData);
-    } catch (err) {
-      console.error('Error fetching technologies:', err);
-    }
-  };
-
-  const fetchTutorials = async () => {
-    try {
-      const filters = {
-        domain: domain._id,
-        sort: sortBy
-      };
-      
-      if (selectedTechnology !== 'all') {
-        filters.technology = selectedTechnology;
-      }
-      
-      if (difficultyFilter !== 'all') {
-        filters.difficulty = difficultyFilter;
-      }
-      
-      if (searchQuery) {
-        filters.search = searchQuery;
-      }
-      
-      const tutorialsResponse = await tutorialAPI.getAll(filters);
-      const tutorialsData = tutorialsResponse.data.tutorials || tutorialsResponse.data;
-      setTutorials(tutorialsData);
-      
-    } catch (err) {
-      console.error('Error fetching tutorials:', err);
-      setError('Failed to load tutorials for this domain.');
     }
   };
 
@@ -178,17 +129,15 @@ const DynamicDomain = () => {
     }
   };
 
-  // Get domain icon based on name
+  // Get domain icon
   const getDomainIcon = () => {
     const name = domain?.name?.toLowerCase() || '';
     
     if (name.includes('web')) return '🌐';
     if (name.includes('mobile')) return '📱';
     if (name.includes('data')) return '📊';
+    if (name.includes('machine')) return '🤖';
     if (name.includes('game')) return '🎮';
-    if (name.includes('ai') || name.includes('machine')) return '🤖';
-    if (name.includes('cloud')) return '☁️';
-    if (name.includes('security')) return '🔒';
     if (name.includes('design')) return '🎨';
     return '💻';
   };
@@ -198,28 +147,11 @@ const DynamicDomain = () => {
     const name = domain?.name?.toLowerCase() || '';
     
     if (name.includes('web')) return { bg: 'from-blue-500 to-cyan-500', text: 'text-blue-700' };
-    if (name.includes('mobile')) return { bg: 'from-green-500 to-emerald-500', text: 'text-green-700' };
-    if (name.includes('data')) return { bg: 'from-purple-500 to-indigo-500', text: 'text-purple-700' };
-    if (name.includes('game')) return { bg: 'from-pink-500 to-rose-500', text: 'text-pink-700' };
-    if (name.includes('ai') || name.includes('machine')) return { bg: 'from-indigo-500 to-purple-500', text: 'text-indigo-700' };
-    if (name.includes('cloud')) return { bg: 'from-gray-500 to-slate-500', text: 'text-gray-700' };
-    if (name.includes('security')) return { bg: 'from-red-500 to-orange-500', text: 'text-red-700' };
-    if (name.includes('design')) return { bg: 'from-pink-500 to-purple-500', text: 'text-pink-700' };
+    if (name.includes('mobile')) return { bg: 'from-purple-500 to-pink-500', text: 'text-purple-700' };
+    if (name.includes('data')) return { bg: 'from-green-500 to-teal-500', text: 'text-green-700' };
+    if (name.includes('machine')) return { bg: 'from-orange-500 to-red-500', text: 'text-orange-700' };
+    if (name.includes('game')) return { bg: 'from-indigo-500 to-purple-500', text: 'text-indigo-700' };
     return { bg: 'from-emerald-500 to-teal-600', text: 'text-emerald-700' };
-  };
-
-  // Get technology icon
-  const getTechnologyIcon = (techName) => {
-    const name = techName?.toLowerCase() || '';
-    if (name.includes('html')) return '🌐';
-    if (name.includes('css')) return '🎨';
-    if (name.includes('javascript')) return '⚡';
-    if (name.includes('react')) return '⚛️';
-    if (name.includes('node')) return '🟢';
-    if (name.includes('python')) return '🐍';
-    if (name.includes('java')) return '☕';
-    if (name.includes('php')) return '🐘';
-    return '💻';
   };
 
   if (isLoading) {
@@ -255,13 +187,6 @@ const DynamicDomain = () => {
   }
 
   const colors = getDomainColors();
-  const filteredTutorials = tutorials.filter(tutorial => {
-    if (searchQuery) {
-      return tutorial.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-             tutorial.description.toLowerCase().includes(searchQuery.toLowerCase());
-    }
-    return true;
-  });
 
   return (
     <div className="max-w-6xl mx-auto py-6">
@@ -290,7 +215,7 @@ const DynamicDomain = () => {
             <div>
               <h1 className="text-3xl md:text-4xl font-bold mb-2">{domain.name}</h1>
               <div className="flex items-center text-white text-opacity-90">
-                <Folder size={16} className="mr-1" />
+                <BookOpen size={16} className="mr-1" />
                 <span>Learning Domain</span>
               </div>
             </div>
@@ -310,230 +235,110 @@ const DynamicDomain = () => {
               <span>{tutorials.length} {tutorials.length === 1 ? 'Tutorial' : 'Tutorials'}</span>
             </div>
             <div className="flex items-center bg-white bg-opacity-20 rounded-full px-3 py-1">
-              <Target size={14} className="mr-1" />
-              <span>Skill Building</span>
+              <Users size={14} className="mr-1" />
+              <span>Interactive Learning</span>
+            </div>
+            <div className="flex items-center bg-white bg-opacity-20 rounded-full px-3 py-1">
+              <Star size={14} className="mr-1" />
+              <span>All Levels</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* View Mode Toggle */}
-      <div className="mb-6">
-        <div className="flex border-b">
-          <button
-            onClick={() => setViewMode('tutorials')}
-            className={`px-4 py-2 border-b-2 font-medium text-sm ${
-              viewMode === 'tutorials'
-                ? 'border-emerald-500 text-emerald-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            Tutorials ({tutorials.length})
-          </button>
-          <button
-            onClick={() => setViewMode('technologies')}
-            className={`px-4 py-2 border-b-2 font-medium text-sm ml-4 ${
-              viewMode === 'technologies'
-                ? 'border-emerald-500 text-emerald-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            Technologies ({technologies.length})
-          </button>
-        </div>
-      </div>
-
-      {viewMode === 'tutorials' ? (
-        <>
-          {/* Filters and Search for Tutorials */}
-          <div className="mb-6 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-            <div className="flex flex-wrap gap-3">
-              {/* Search */}
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Search tutorials..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-8 pr-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-                <Search size={16} className="absolute left-2.5 top-2.5 text-gray-400" />
-              </div>
-
-              {/* Technology Filter */}
-              {technologies.length > 0 && (
-                <select
-                  value={selectedTechnology}
-                  onChange={(e) => setSelectedTechnology(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                >
-                  <option value="all">All Technologies</option>
-                  {technologies.map(tech => (
-                    <option key={tech._id} value={tech._id}>
-                      {tech.name}
-                    </option>
-                  ))}
-                </select>
-              )}
-
-              {/* Difficulty Filter */}
-              <select
-                value={difficultyFilter}
-                onChange={(e) => setDifficultyFilter(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+      {/* Technologies Section */}
+      {technologies.length > 0 && (
+        <div className="mb-12">
+          <h2 className="text-2xl font-bold mb-6">Technologies in {domain.name}</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {technologies.map((technology) => (
+              <Link 
+                key={technology._id}
+                to={`/technologies/${technology.slug || technology._id}`}
+                className="bg-white p-6 rounded-lg border shadow-sm hover:shadow-md transition-shadow"
               >
-                <option value="all">All Levels</option>
-                <option value="beginner">Beginner</option>
-                <option value="intermediate">Intermediate</option>
-                <option value="advanced">Advanced</option>
-              </select>
-            </div>
+                <div className="flex items-center mb-3">
+                  <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center mr-3">
+                    <Code size={16} className="text-emerald-600" />
+                  </div>
+                  <h3 className="font-semibold text-gray-900">{technology.name}</h3>
+                </div>
+                <p className="text-gray-600 text-sm mb-4">{technology.description}</p>
+                <div className="flex items-center text-emerald-600 text-sm font-medium">
+                  <span>Explore {technology.name}</span>
+                  <ArrowRight size={16} className="ml-1" />
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
-            {/* Sort */}
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+      {/* Tutorials Section */}
+      {tutorials.length > 0 && (
+        <div className="mb-12">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold">Latest Tutorials</h2>
+            <Link 
+              to={`/tutorials?domain=${domain._id}`}
+              className="text-emerald-600 hover:text-emerald-700 font-medium"
             >
-              <option value="-createdAt">Newest First</option>
-              <option value="createdAt">Oldest First</option>
-              <option value="title">Title A-Z</option>
-              <option value="difficulty">Difficulty: Easy to Hard</option>
-            </select>
+              View All Tutorials
+            </Link>
           </div>
-
-          {/* Results Count */}
-          <div className="mb-6">
-            <p className="text-gray-600">
-              {filteredTutorials.length} {filteredTutorials.length === 1 ? 'tutorial' : 'tutorials'} 
-              {searchQuery && <span> found for "{searchQuery}"</span>}
-              {difficultyFilter !== 'all' && <span> • {difficultyFilter} level</span>}
-              {selectedTechnology !== 'all' && <span> • {technologies.find(t => t._id === selectedTechnology)?.name}</span>}
-            </p>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {tutorials.slice(0, 6).map((tutorial) => (
+              <TutorialCard 
+                key={tutorial._id}
+                tutorial={tutorial}
+                isBookmarked={isTutorialBookmarked(tutorial._id)}
+                progress={getTutorialProgress(tutorial._id)}
+                onBookmarkToggle={(e) => toggleBookmark(e, tutorial._id)}
+                user={user}
+              />
+            ))}
           </div>
-
-          {/* Tutorials Grid */}
-          {filteredTutorials.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredTutorials.map(tutorial => (
-                <TutorialCard 
-                  key={tutorial._id}
-                  tutorial={tutorial}
-                  domain={domain}
-                  isBookmarked={isTutorialBookmarked(tutorial._id)}
-                  progress={getTutorialProgress(tutorial._id)}
-                  onBookmarkToggle={(e) => toggleBookmark(e, tutorial._id)}
-                  user={user}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-12 bg-gray-50 rounded-lg">
-              <Search size={48} className="mx-auto text-gray-300 mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No tutorials found</h3>
-              <p className="text-gray-600 mb-4">
-                {searchQuery 
-                  ? `No tutorials match "${searchQuery}"`
-                  : `No ${difficultyFilter} level tutorials available`
-                }
-              </p>
-              {(searchQuery || difficultyFilter !== 'all' || selectedTechnology !== 'all') && (
-                <button
-                  onClick={() => {
-                    setSearchQuery('');
-                    setDifficultyFilter('all');
-                    setSelectedTechnology('all');
-                  }}
-                  className="inline-flex items-center px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700"
-                >
-                  Clear filters
-                </button>
-              )}
-            </div>
-          )}
-        </>
-      ) : (
-        <>
-          {/* Technologies View */}
-          <div className="mb-6">
-            <h2 className="text-xl font-bold mb-4">Technologies in {domain.name}</h2>
-            <p className="text-gray-600">
-              Explore the different technologies and programming languages within {domain.name.toLowerCase()}.
-            </p>
-          </div>
-
-          {technologies.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {technologies.map(technology => (
-                <TechnologyCard 
-                  key={technology._id}
-                  technology={technology}
-                  domain={domain}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-12 bg-gray-50 rounded-lg">
-              <Code size={48} className="mx-auto text-gray-300 mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No technologies found</h3>
-              <p className="text-gray-600">
-                This domain doesn't have any technologies configured yet.
-              </p>
-            </div>
-          )}
-        </>
+        </div>
       )}
 
       {/* Get Started CTA */}
-      {(tutorials.length > 0 || technologies.length > 0) && (
-        <div className="mt-12 bg-gray-50 rounded-lg p-8 text-center">
-          <h3 className="text-xl font-bold mb-2">Ready to explore {domain.name}?</h3>
-          <p className="text-gray-600 mb-4">
-            Start with our beginner-friendly tutorials and build your skills step by step.
-          </p>
-          {!isAuthenticated ? (
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <Link
-                to="/register"
-                className="px-6 py-3 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 font-medium"
-              >
-                Sign Up Free
-              </Link>
-              <Link
-                to="/login"
-                className="px-6 py-3 border border-emerald-600 text-emerald-600 rounded-md hover:bg-emerald-50 font-medium"
-              >
-                Sign In
-              </Link>
-            </div>
-          ) : (
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              {tutorials.length > 0 && (
-                <Link
-                  to={`/tutorials/${tutorials[0]?.slug || tutorials[0]?._id}`}
-                  className="px-6 py-3 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 font-medium"
-                >
-                  Start Learning
-                </Link>
-              )}
-              {technologies.length > 0 && (
-                <Link
-                  to={`/technologies/${technologies[0]?.slug || technologies[0]?._id}`}
-                  className="px-6 py-3 border border-emerald-600 text-emerald-600 rounded-md hover:bg-emerald-50 font-medium"
-                >
-                  Explore Technologies
-                </Link>
-              )}
-            </div>
-          )}
-        </div>
-      )}
+      <div className="bg-gray-50 rounded-lg p-8 text-center">
+        <h3 className="text-xl font-bold mb-2">Ready to dive into {domain.name}?</h3>
+        <p className="text-gray-600 mb-4">
+          Start with our beginner-friendly tutorials and build your skills step by step.
+        </p>
+        {!isAuthenticated ? (
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Link
+              to="/register"
+              className="px-6 py-3 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 font-medium"
+            >
+              Sign Up Free
+            </Link>
+            <Link
+              to="/login"
+              className="px-6 py-3 border border-emerald-600 text-emerald-600 rounded-md hover:bg-emerald-50 font-medium"
+            >
+              Sign In
+            </Link>
+          </div>
+        ) : (
+          <Link
+            to={`/tutorials?domain=${domain._id}`}
+            className="inline-flex items-center px-6 py-3 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 font-medium"
+          >
+            Start Learning
+            <ArrowRight size={18} className="ml-2" />
+          </Link>
+        )}
+      </div>
     </div>
   );
 };
 
-// Tutorial Card Component
-const TutorialCard = ({ tutorial, domain, isBookmarked, progress, onBookmarkToggle, user }) => {
+// Tutorial Card Component (simplified version)
+const TutorialCard = ({ tutorial, isBookmarked, progress, onBookmarkToggle, user }) => {
   const navigate = useNavigate();
 
   const handleCardClick = () => {
@@ -549,164 +354,55 @@ const TutorialCard = ({ tutorial, domain, isBookmarked, progress, onBookmarkTogg
     }
   };
 
-  const formatDuration = (minutes) => {
-    if (minutes < 60) return `${minutes}m`;
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
-  };
-
   return (
     <div 
       className="bg-white rounded-lg border shadow-sm hover:shadow-md transition-all cursor-pointer overflow-hidden"
       onClick={handleCardClick}
     >
-      {/* Card Header */}
-      <div className="p-4 border-b">
-        <div className="flex justify-between items-start">
-          <div className="flex-1">
-            <h3 className="font-semibold text-gray-900 mb-1 line-clamp-2">{tutorial.title}</h3>
-            <div className="flex items-center gap-2 text-sm text-gray-500">
-              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getDifficultyColor(tutorial.difficulty)}`}>
-                {tutorial.difficulty?.charAt(0).toUpperCase() + tutorial.difficulty?.slice(1) || 'Beginner'}
-              </span>
-              <span className="flex items-center">
-                <Clock size={12} className="mr-1" />
-                {formatDuration(tutorial.estimatedTime || 30)}
-              </span>
-              {tutorial.technology && (
-                <span className="text-emerald-600 text-xs">
-                  {tutorial.technology.name || tutorial.technology}
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* Bookmark button */}
+      <div className="p-4">
+        <div className="flex justify-between items-start mb-2">
+          <h3 className="font-semibold text-gray-900 line-clamp-2 flex-1">{tutorial.title}</h3>
           {user && (
             <button
               onClick={onBookmarkToggle}
-              className={`p-1.5 rounded-full transition-colors ${
+              className={`p-1.5 rounded-full transition-colors ml-2 ${
                 isBookmarked 
                   ? 'text-yellow-500 bg-yellow-50' 
                   : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
               }`}
-              title={isBookmarked ? 'Remove bookmark' : 'Bookmark tutorial'}
             >
               <Bookmark size={16} className={isBookmarked ? 'fill-yellow-500' : ''} />
             </button>
           )}
         </div>
-      </div>
-
-      {/* Card Body */}
-      <div className="p-4">
-        <p className="text-gray-600 text-sm mb-4 line-clamp-3">{tutorial.description}</p>
-
-        {/* Progress bar (for authenticated users) */}
+        
+        <p className="text-gray-600 text-sm mb-4 line-clamp-2">{tutorial.description}</p>
+        
+        <div className="flex items-center justify-between text-sm text-gray-500 mb-3">
+          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getDifficultyColor(tutorial.difficulty)}`}>
+            {tutorial.difficulty?.charAt(0).toUpperCase() + tutorial.difficulty?.slice(1) || 'Beginner'}
+          </span>
+          <span>{tutorial.lessons?.length || 0} lessons</span>
+        </div>
+        
         {user && progress > 0 && (
-          <div className="mb-4">
+          <div className="mb-3">
             <div className="flex justify-between text-xs mb-1">
-              <span className="font-medium text-gray-700">Progress</span>
+              <span>Progress</span>
               <span className="text-emerald-600">{Math.round(progress)}%</span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-1.5">
               <div 
-                className="bg-emerald-600 h-1.5 rounded-full transition-all duration-300"
+                className="bg-emerald-600 h-1.5 rounded-full"
                 style={{ width: `${progress}%` }}
               ></div>
             </div>
           </div>
         )}
-
-        {/* Meta information */}
-        <div className="flex justify-between items-center text-sm text-gray-500 mb-4">
-          <div className="flex items-center">
-            <BookOpen size={14} className="mr-1" />
-            <span>{tutorial.lessons?.length || 0} lessons</span>
-          </div>
-          <div className="flex items-center">
-            <BarChart size={14} className="mr-1" />
-            <span>Interactive</span>
-          </div>
-        </div>
-
-        {/* Tags */}
-        {tutorial.tags && tutorial.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1 mb-4">
-            {tutorial.tags.slice(0, 3).map((tag, index) => (
-              <span 
-                key={index}
-                className="inline-block px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded-full"
-              >
-                {tag}
-              </span>
-            ))}
-            {tutorial.tags.length > 3 && (
-              <span className="inline-block px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded-full">
-                +{tutorial.tags.length - 3} more
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* Action */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center text-emerald-600 font-medium text-sm">
-            <Play size={14} className="mr-1" />
-            <span>{user && progress > 0 ? 'Continue' : 'Start Learning'}</span>
-          </div>
-          <ArrowRight size={16} className="text-emerald-600" />
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Technology Card Component
-const TechnologyCard = ({ technology, domain }) => {
-  const navigate = useNavigate();
-
-  const handleCardClick = () => {
-    navigate(`/technologies/${technology.slug || technology._id}`);
-  };
-
-  const getTechnologyIcon = (techName) => {
-    const name = techName?.toLowerCase() || '';
-    if (name.includes('html')) return '🌐';
-    if (name.includes('css')) return '🎨';
-    if (name.includes('javascript')) return '⚡';
-    if (name.includes('react')) return '⚛️';
-    if (name.includes('node')) return '🟢';
-    if (name.includes('python')) return '🐍';
-    if (name.includes('java')) return '☕';
-    if (name.includes('php')) return '🐘';
-    return '💻';
-  };
-
-  return (
-    <div 
-      className="bg-white rounded-lg border shadow-sm hover:shadow-md transition-all cursor-pointer overflow-hidden"
-      onClick={handleCardClick}
-    >
-      <div className="p-6">
-        <div className="flex items-center mb-4">
-          <div className="text-3xl mr-3">
-            {getTechnologyIcon(technology.name)}
-          </div>
-          <div>
-            <h3 className="font-semibold text-gray-900 text-lg">{technology.name}</h3>
-            <p className="text-sm text-gray-500">Technology</p>
-          </div>
-        </div>
         
-        <p className="text-gray-600 text-sm mb-4 line-clamp-3">{technology.description}</p>
-        
-        <div className="flex items-center justify-between">
-          <div className="flex items-center text-emerald-600 font-medium text-sm">
-            <span>Explore Technology</span>
-          </div>
-          <ChevronRight size={16} className="text-emerald-600" />
+        <div className="flex items-center text-emerald-600 font-medium text-sm">
+          <span>{user && progress > 0 ? 'Continue' : 'Start Learning'}</span>
+          <ArrowRight size={16} className="ml-1" />
         </div>
       </div>
     </div>

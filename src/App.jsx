@@ -9,17 +9,23 @@ import HomePage from './pages/Home';
 import LoginPage from './pages/Login';
 import RegisterPage from './pages/Register';
 import TutorialPage from './pages/Tutorial';
-import DomainsPage from './pages/Domains';
 import ProfilePage from './pages/Profile';
 import NotFoundPage from './pages/NotFound';
 import BookmarksPage from './pages/Bookmarks';
 import ProgressPage from './pages/Progress';
+
+// Static pages
+import AboutPage from './pages/About';
+import ContactPage from './pages/Contact';
+import PrivacyPage from './pages/Privacy';
+import TermsPage from './pages/Terms';
 
 // Dynamic tutorial pages
 import DynamicTutorial from './pages/tutorials/DynamicTutorial';
 import DynamicLesson from './pages/tutorials/DynamicLesson';
 import DynamicTechnology from './pages/tutorials/DynamicTechnology';
 import DynamicDomain from './pages/tutorials/DynamicDomain';
+import DomainsPage from './pages/DomainsPage';
 
 // Admin pages
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -93,10 +99,20 @@ function App() {
             <Route path="/" element={<MainLayout />}>
               <Route index element={<HomePage />} />
               <Route path="tutorials" element={<TutorialPage />} />
-              <Route path="domains" element={<DomainsPage />} />
+              
+              {/* Static pages */}
+              <Route path="about" element={<AboutPage />} />
+              <Route path="contact" element={<ContactPage />} />
+              <Route path="privacy" element={<PrivacyPage />} />
+              <Route path="terms" element={<TermsPage />} />
               
               {/* User related routes */}
               <Route path="profile" element={
+                <ProtectedRoute>
+                  <ProfilePage />
+                </ProtectedRoute>
+              } />
+              <Route path="dashboard" element={
                 <ProtectedRoute>
                   <ProfilePage />
                 </ProtectedRoute>
@@ -112,23 +128,25 @@ function App() {
                 </ProtectedRoute>
               } />
               
-              {/* Dynamic routes for domains */}
-              <Route path="domains/:domainSlug" element={<DynamicDomain />} />
+              {/* Dynamic routes - ORDER MATTERS! Most specific routes first */}
               
-              {/* Dynamic routes for technologies */}
-              <Route path="technologies/:technologySlug" element={<DynamicTechnology />} />
-              
-              {/* Dynamic routes for tutorials and lessons */}
-              {/* Order matters - more specific routes should come first */}
-              
-              {/* Direct tutorial by ID */}
-              <Route path="tutorials/:tutorialId" element={<DynamicTutorial />} />
-              
-              {/* Tutorial by domain and technology */}
-              <Route path="tutorials/:domain/:technology" element={<DynamicTutorial />} />
+              {/* Domains index page - shows all domains */}
+              <Route path="domains" element={<DomainsPage />} />
               
               {/* Specific tutorial by domain, technology, and slug */}
-              <Route path="tutorials/:domain/:technology/:tutorialSlug" element={<DynamicTutorial />} />
+              <Route path="domains/:domain/technologies/:technology/tutorials/:tutorialSlug" element={<DynamicTutorial />} />
+              
+              {/* Tutorial by domain and technology (shows default/first tutorial) */}
+              <Route path="domains/:domain/technologies/:technology" element={<DynamicTutorial />} />
+              
+              {/* Technology overview page */}
+              <Route path="technologies/:technologySlug" element={<DynamicTechnology />} />
+              
+              {/* Domain overview page - THIS IS NOW PROPERLY USED */}
+              <Route path="domains/:domainSlug" element={<DynamicDomain />} />
+              
+              {/* Direct tutorial by ID or slug */}
+              <Route path="tutorials/:tutorialId" element={<DynamicTutorial />} />
               
               {/* Lesson routes */}
               <Route path="lessons/:lessonId" element={<DynamicLesson />} />

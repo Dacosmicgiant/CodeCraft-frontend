@@ -6,7 +6,8 @@ import {
   Clock, 
   BarChart,
   X,
-  AlertCircle 
+  AlertCircle,
+  ArrowRight
 } from 'lucide-react';
 import { userAPI } from '../services/api';
 
