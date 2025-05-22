@@ -1,4 +1,3 @@
-// src/pages/admin/TechnologyForm.jsx
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Save, AlertCircle, Check } from 'lucide-react';
@@ -12,7 +11,7 @@ const TechnologyForm = () => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    domainId: '',
+    domain: '', // Will store domain ID
     icon: 'code'
   });
   
@@ -39,7 +38,7 @@ const TechnologyForm = () => {
     try {
       setIsDomainsLoading(true);
       const response = await domainAPI.getAll();
-      setDomains(response.data);
+      setDomains(response.data || []);
     } catch (err) {
       console.error('Error fetching domains:', err);
       setApiError('Failed to load domains. Please try again.');
@@ -56,15 +55,22 @@ const TechnologyForm = () => {
       const response = await technologyAPI.getById(id);
       const tech = response.data;
       
+      // Safely extract domain ID
+      const domainId = tech.domain?._id || tech.domain || '';
+      
       setFormData({
-        name: tech.name,
-        description: tech.description,
-        domainId: tech.domain._id || tech.domain,
+        name: tech.name || '',
+        description: tech.description || '',
+        domain: domainId,
         icon: tech.icon || 'code'
       });
     } catch (err) {
       console.error('Error fetching technology:', err);
-      setApiError('Failed to load technology data. Please try again.');
+      if (err.response?.status === 404) {
+        setApiError('Technology not found.');
+      } else {
+        setApiError('Failed to load technology data. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -99,8 +105,8 @@ const TechnologyForm = () => {
       newErrors.description = 'Description is required';
     }
     
-    if (!formData.domainId) {
-      newErrors.domainId = 'Please select a domain';
+    if (!formData.domain) {
+      newErrors.domain = 'Please select a domain';
     }
     
     setErrors(newErrors);
@@ -119,16 +125,17 @@ const TechnologyForm = () => {
       try {
         // Prepare data for API
         const techData = {
-          name: formData.name,
-          description: formData.description,
-          domain: formData.domainId,
+          name: formData.name.trim(),
+          description: formData.description.trim(),
+          domain: formData.domain,
           icon: formData.icon
         };
         
+        let response;
         if (isEditing) {
-          await technologyAPI.update(id, techData);
+          response = await technologyAPI.update(id, techData);
         } else {
-          await technologyAPI.create(techData);
+          response = await technologyAPI.create(techData);
         }
         
         setSaveSuccess(true);
@@ -142,6 +149,10 @@ const TechnologyForm = () => {
         
         if (err.response?.data?.message) {
           setApiError(err.response.data.message);
+        } else if (err.response?.status === 400) {
+          setApiError('Please check your input data and try again.');
+        } else if (err.response?.status === 404) {
+          setApiError('Domain not found. Please refresh and try again.');
         } else {
           setApiError('Failed to save technology. Please try again.');
         }
@@ -149,6 +160,12 @@ const TechnologyForm = () => {
         setIsLoading(false);
       }
     }
+  };
+
+  // Get domain name by ID for display
+  const getDomainName = (domainId) => {
+    const domain = domains.find(d => d._id === domainId);
+    return domain ? domain.name : 'Unknown Domain';
   };
 
   return (
@@ -179,7 +196,7 @@ const TechnologyForm = () => {
         </div>
       )}
       
-      {isLoading && !formData.name ? (
+      {isLoading && !formData.name && isEditing ? (
         <div className="flex justify-center py-8">
           <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-emerald-600"></div>
         </div>
@@ -200,6 +217,7 @@ const TechnologyForm = () => {
                   errors.name ? 'border-red-300' : 'border-gray-300'
                 } focus:outline-none focus:ring-2 focus:ring-emerald-500`}
                 placeholder="e.g., HTML"
+                disabled={isLoading}
               />
               {errors.name && (
                 <p className="mt-1 text-sm text-red-600">{errors.name}</p>
@@ -220,6 +238,7 @@ const TechnologyForm = () => {
                   errors.description ? 'border-red-300' : 'border-gray-300'
                 } focus:outline-none focus:ring-2 focus:ring-emerald-500`}
                 placeholder="Brief description of this technology"
+                disabled={isLoading}
               ></textarea>
               {errors.description && (
                 <p className="mt-1 text-sm text-red-600">{errors.description}</p>
@@ -227,18 +246,18 @@ const TechnologyForm = () => {
             </div>
             
             <div>
-              <label htmlFor="domainId" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="domain" className="block text-sm font-medium text-gray-700 mb-1">
                 Domain *
               </label>
               <select
-                id="domainId"
-                name="domainId"
-                value={formData.domainId}
+                id="domain"
+                name="domain"
+                value={formData.domain}
                 onChange={handleChange}
                 className={`w-full px-3 py-2 border rounded-md ${
-                  errors.domainId ? 'border-red-300' : 'border-gray-300'
+                  errors.domain ? 'border-red-300' : 'border-gray-300'
                 } focus:outline-none focus:ring-2 focus:ring-emerald-500`}
-                disabled={isDomainsLoading}
+                disabled={isDomainsLoading || isLoading}
               >
                 <option value="">Select a domain</option>
                 {domains.map(domain => (
@@ -247,8 +266,11 @@ const TechnologyForm = () => {
                   </option>
                 ))}
               </select>
-              {errors.domainId && (
-                <p className="mt-1 text-sm text-red-600">{errors.domainId}</p>
+              {isDomainsLoading && (
+                <p className="mt-1 text-sm text-gray-500">Loading domains...</p>
+              )}
+              {errors.domain && (
+                <p className="mt-1 text-sm text-red-600">{errors.domain}</p>
               )}
             </div>
             
@@ -262,6 +284,7 @@ const TechnologyForm = () => {
                 value={formData.icon}
                 onChange={handleChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                disabled={isLoading}
               >
                 <option value="code">Code</option>
                 <option value="book">Book</option>
@@ -270,6 +293,16 @@ const TechnologyForm = () => {
                 <option value="chart">Chart</option>
               </select>
             </div>
+            
+            {/* Show current values when editing */}
+            {isEditing && formData.domain && !isLoading && (
+              <div className="bg-gray-50 p-4 rounded-md">
+                <h3 className="text-sm font-medium text-gray-700 mb-2">Current Assignment:</h3>
+                <p className="text-sm text-gray-600">
+                  Domain: <span className="font-medium">{getDomainName(formData.domain)}</span>
+                </p>
+              </div>
+            )}
             
             <div className="flex justify-end space-x-3 pt-4">
               <button

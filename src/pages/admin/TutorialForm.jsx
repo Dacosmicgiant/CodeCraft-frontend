@@ -1,6 +1,5 @@
-// src/pages/admin/TutorialForm.jsx
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Save, AlertCircle, Check, Plus, X } from 'lucide-react';
 import { tutorialAPI, domainAPI, technologyAPI } from '../../services/api';
 
@@ -39,8 +38,19 @@ const TutorialForm = () => {
   // Filter technologies when domain changes
   useEffect(() => {
     if (formData.domain) {
-      const filtered = technologies.filter(tech => tech.domain === formData.domain || tech.domain._id === formData.domain);
+      const filtered = technologies.filter(tech => {
+        const techDomainId = tech.domain?._id || tech.domain;
+        return techDomainId === formData.domain;
+      });
       setFilteredTechnologies(filtered);
+      
+      // Clear technology selection if current technology doesn't belong to selected domain
+      if (formData.technology) {
+        const currentTechValid = filtered.some(tech => tech._id === formData.technology);
+        if (!currentTechValid) {
+          setFormData(prev => ({ ...prev, technology: '' }));
+        }
+      }
     } else {
       setFilteredTechnologies([]);
     }
@@ -56,22 +66,22 @@ const TutorialForm = () => {
   const fetchDomains = async () => {
     try {
       const response = await domainAPI.getAll();
-      setDomains(response.data);
+      setDomains(response.data || []);
     } catch (err) {
       console.error('Error fetching domains:', err);
       setApiError('Failed to load domains. Please try again.');
-    } finally {
-      setIsResourcesLoading(false);
     }
   };
   
   const fetchTechnologies = async () => {
     try {
       const response = await technologyAPI.getAll();
-      setTechnologies(response.data);
+      setTechnologies(response.data || []);
     } catch (err) {
       console.error('Error fetching technologies:', err);
       setApiError('Failed to load technologies. Please try again.');
+    } finally {
+      setIsResourcesLoading(false);
     }
   };
   
@@ -83,12 +93,16 @@ const TutorialForm = () => {
       const response = await tutorialAPI.getById(id);
       const tutorial = response.data;
       
+      // Safely extract IDs from populated objects or use the ID directly
+      const domainId = tutorial.domain?._id || tutorial.domain || '';
+      const technologyId = tutorial.technology?._id || tutorial.technology || '';
+      
       // Set form data from tutorial
       setFormData({
-        title: tutorial.title,
-        description: tutorial.description,
-        domain: tutorial.domain._id || tutorial.domain,
-        technology: tutorial.technology._id || tutorial.technology,
+        title: tutorial.title || '',
+        description: tutorial.description || '',
+        domain: domainId,
+        technology: technologyId,
         difficulty: tutorial.difficulty || 'beginner',
         estimatedTime: tutorial.estimatedTime || 30,
         tags: tutorial.tags || [],
@@ -191,20 +205,21 @@ const TutorialForm = () => {
       try {
         // Prepare the tutorial data
         const tutorialData = {
-          title: formData.title,
-          description: formData.description,
+          title: formData.title.trim(),
+          description: formData.description.trim(),
           domain: formData.domain,
           technology: formData.technology,
           difficulty: formData.difficulty,
           estimatedTime: parseInt(formData.estimatedTime),
-          tags: formData.tags,
+          tags: formData.tags.map(tag => tag.trim()).filter(tag => tag.length > 0),
           isPublished: formData.isPublished
         };
         
+        let response;
         if (isEditing) {
-          await tutorialAPI.update(id, tutorialData);
+          response = await tutorialAPI.update(id, tutorialData);
         } else {
-          await tutorialAPI.create(tutorialData);
+          response = await tutorialAPI.create(tutorialData);
         }
         
         setSaveSuccess(true);
@@ -218,6 +233,10 @@ const TutorialForm = () => {
         
         if (err.response?.data?.message) {
           setApiError(err.response.data.message);
+        } else if (err.response?.status === 400) {
+          setApiError('Please check your input data and try again.');
+        } else if (err.response?.status === 404) {
+          setApiError('Domain or technology not found. Please refresh and try again.');
         } else {
           setApiError('Failed to save tutorial. Please try again.');
         }
@@ -225,6 +244,18 @@ const TutorialForm = () => {
         setIsLoading(false);
       }
     }
+  };
+
+  // Get domain name by ID
+  const getDomainName = (domainId) => {
+    const domain = domains.find(d => d._id === domainId);
+    return domain ? domain.name : 'Unknown Domain';
+  };
+
+  // Get technology name by ID
+  const getTechnologyName = (technologyId) => {
+    const technology = technologies.find(t => t._id === technologyId);
+    return technology ? technology.name : 'Unknown Technology';
   };
 
   return (
@@ -276,6 +307,7 @@ const TutorialForm = () => {
                   errors.title ? 'border-red-300' : 'border-gray-300'
                 } focus:outline-none focus:ring-2 focus:ring-emerald-500`}
                 placeholder="e.g., HTML Fundamentals"
+                disabled={isLoading}
               />
               {errors.title && (
                 <p className="mt-1 text-sm text-red-600">{errors.title}</p>
@@ -296,6 +328,7 @@ const TutorialForm = () => {
                   errors.description ? 'border-red-300' : 'border-gray-300'
                 } focus:outline-none focus:ring-2 focus:ring-emerald-500`}
                 placeholder="Write a detailed description of this tutorial..."
+                disabled={isLoading}
               ></textarea>
               {errors.description && (
                 <p className="mt-1 text-sm text-red-600">{errors.description}</p>
@@ -315,7 +348,7 @@ const TutorialForm = () => {
                   className={`w-full px-3 py-2 border rounded-md ${
                     errors.domain ? 'border-red-300' : 'border-gray-300'
                   } focus:outline-none focus:ring-2 focus:ring-emerald-500`}
-                  disabled={isResourcesLoading}
+                  disabled={isResourcesLoading || isLoading}
                 >
                   <option value="">Select a domain</option>
                   {domains.map(domain => (
@@ -341,7 +374,7 @@ const TutorialForm = () => {
                   className={`w-full px-3 py-2 border rounded-md ${
                     errors.technology ? 'border-red-300' : 'border-gray-300'
                   } focus:outline-none focus:ring-2 focus:ring-emerald-500`}
-                  disabled={!formData.domain || isResourcesLoading}
+                  disabled={!formData.domain || isResourcesLoading || isLoading}
                 >
                   <option value="">Select a technology</option>
                   {filteredTechnologies.map(tech => (
@@ -350,10 +383,13 @@ const TutorialForm = () => {
                     </option>
                   ))}
                 </select>
-                {formData.domain && filteredTechnologies.length === 0 && (
+                {formData.domain && filteredTechnologies.length === 0 && !isResourcesLoading && (
                   <p className="mt-1 text-sm text-gray-500">
                     No technologies available for this domain. 
-                    <Link to="/admin/technologies/new" className="ml-1 text-emerald-600 hover:text-emerald-700">
+                    <Link 
+                      to="/admin/technologies/new" 
+                      className="ml-1 text-emerald-600 hover:text-emerald-700 underline"
+                    >
                       Create one
                     </Link>
                   </p>
@@ -375,6 +411,7 @@ const TutorialForm = () => {
                   value={formData.difficulty}
                   onChange={handleChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  disabled={isLoading}
                 >
                   <option value="beginner">Beginner</option>
                   <option value="intermediate">Intermediate</option>
@@ -396,6 +433,7 @@ const TutorialForm = () => {
                   className={`w-full px-3 py-2 border rounded-md ${
                     errors.estimatedTime ? 'border-red-300' : 'border-gray-300'
                   } focus:outline-none focus:ring-2 focus:ring-emerald-500`}
+                  disabled={isLoading}
                 />
                 {errors.estimatedTime && (
                   <p className="mt-1 text-sm text-red-600">{errors.estimatedTime}</p>
@@ -418,6 +456,7 @@ const TutorialForm = () => {
                       type="button"
                       onClick={() => removeTag(tag)}
                       className="ml-1 text-emerald-500 hover:text-emerald-700"
+                      disabled={isLoading}
                     >
                       <X size={12} />
                     </button>
@@ -433,11 +472,12 @@ const TutorialForm = () => {
                   onKeyDown={handleTagInputKeyDown}
                   className="flex-grow px-3 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   placeholder="Add a tag and press Enter"
+                  disabled={isLoading}
                 />
                 <button
                   type="button"
                   onClick={() => addTag(tagInput.trim())}
-                  disabled={!tagInput.trim()}
+                  disabled={!tagInput.trim() || isLoading}
                   className="px-3 py-2 bg-emerald-600 text-white rounded-r-md hover:bg-emerald-700 disabled:opacity-50"
                 >
                   <Plus size={18} />
@@ -454,6 +494,7 @@ const TutorialForm = () => {
                 checked={formData.isPublished}
                 onChange={handleChange}
                 className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
+                disabled={isLoading}
               />
               <label htmlFor="isPublished" className="ml-2 block text-sm text-gray-900">
                 Publish this tutorial (make it visible to users)

@@ -1,4 +1,3 @@
-// src/components/common/Sidebar.jsx
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { ChevronDown, ChevronRight, Hash, Folder, File, Code, BookOpen, Loader, AlertCircle } from 'lucide-react';
@@ -41,18 +40,17 @@ const Sidebar = ({ currentTopic, onTopicChange }) => {
       
       setDomains(domainsData);
       
-      // Initialize expanded states
+      // Initialize expanded states - expand Web Development by default
       const domainStates = {};
-      
       domainsData.forEach(domain => {
-        // Default expand Web Development domain
-        domainStates[domain._id] = domain.name === 'Web Development';
+        domainStates[domain._id] = domain.name.toLowerCase().includes('web');
       });
-      
       setExpandedDomains(domainStates);
       
-      // If a domain is expanded by default, fetch its technologies
-      const webDevDomain = domainsData.find(d => d.name === 'Web Development');
+      // Auto-expand and fetch technologies for Web Development domain
+      const webDevDomain = domainsData.find(d => 
+        d.name.toLowerCase().includes('web') || d.name.toLowerCase().includes('development')
+      );
       if (webDevDomain) {
         fetchTechnologies(webDevDomain._id);
       }
@@ -89,17 +87,15 @@ const Sidebar = ({ currentTopic, onTopicChange }) => {
         )
       );
       
-      // Initialize expanded states for technologies
+      // Initialize expanded states for technologies - expand HTML by default
       const techStates = { ...expandedTechnologies };
       technologies.forEach(tech => {
-        // HTML is expanded by default
-        techStates[tech._id] = tech.name === 'HTML';
+        techStates[tech._id] = tech.name.toLowerCase() === 'html';
       });
-      
       setExpandedTechnologies(techStates);
       
-      // If HTML technology is found and expanded, fetch its tutorials
-      const htmlTech = technologies.find(t => t.name === 'HTML');
+      // Auto-expand and fetch tutorials for HTML technology
+      const htmlTech = technologies.find(t => t.name.toLowerCase() === 'html');
       if (htmlTech) {
         fetchTutorials(htmlTech._id);
       }
@@ -148,16 +144,14 @@ const Sidebar = ({ currentTopic, onTopicChange }) => {
         })
       );
       
-      // Initialize tutorial expanded states
+      // Initialize tutorial expanded states - expand first tutorial by default
       const tutorialStates = { ...expandedTutorials };
       if (tutorials.length > 0) {
-        // Expand the first tutorial by default
         tutorialStates[tutorials[0]._id] = true;
         
         // Fetch lessons for the first tutorial
         fetchLessons(tutorials[0]._id);
       }
-      
       setExpandedTutorials(tutorialStates);
       
     } catch (err) {
@@ -187,7 +181,10 @@ const Sidebar = ({ currentTopic, onTopicChange }) => {
       
       // Fetch lessons for this tutorial
       const lessonsResponse = await lessonAPI.getByTutorial(tutorialId);
-      const lessons = lessonsResponse.data;
+      const lessons = lessonsResponse.data || [];
+      
+      // Sort lessons by order
+      const sortedLessons = lessons.sort((a, b) => (a.order || 0) - (b.order || 0));
       
       // Update domains state with lessons
       setDomains(prevDomains => 
@@ -199,7 +196,7 @@ const Sidebar = ({ currentTopic, onTopicChange }) => {
             
             const updatedTutorials = tech.tutorials.map(tutorial => 
               tutorial._id === tutorialId 
-                ? { ...tutorial, lessons } 
+                ? { ...tutorial, lessons: sortedLessons } 
                 : tutorial
             );
             
@@ -306,8 +303,8 @@ const Sidebar = ({ currentTopic, onTopicChange }) => {
   };
   
   // Helper function to get the domain icon
-  const getDomainIcon = (icon) => {
-    switch (icon) {
+  const getDomainIcon = (iconName) => {
+    switch (iconName) {
       case 'code':
         return <Code size={16} />;
       case 'folder':
@@ -317,6 +314,18 @@ const Sidebar = ({ currentTopic, onTopicChange }) => {
       default:
         return <Folder size={16} />;
     }
+  };
+
+  // Get technology icon based on name
+  const getTechnologyIcon = (techName) => {
+    const name = techName?.toLowerCase() || '';
+    if (name.includes('html')) return '🌐';
+    if (name.includes('css')) return '🎨';
+    if (name.includes('javascript')) return '⚡';
+    if (name.includes('react')) return '⚛️';
+    if (name.includes('node')) return '🟢';
+    if (name.includes('python')) return '🐍';
+    return '#';
   };
   
   // Loading state
@@ -352,13 +361,13 @@ const Sidebar = ({ currentTopic, onTopicChange }) => {
   return (
     <aside className="w-64 h-full bg-white border-r">
       <nav className="h-full overflow-y-auto">
-        <div className="mt-2">
+        <div className="p-2">
           {/* Domain Level */}
           {domains.map((domain) => (
             <div key={domain._id} className="mb-2">
               <button
                 onClick={() => toggleDomain(domain._id)}
-                className="flex items-center justify-between w-full px-4 py-2 text-left text-sm font-medium text-gray-800 hover:bg-gray-100 rounded-md"
+                className="flex items-center justify-between w-full px-3 py-2 text-left text-sm font-medium text-gray-800 hover:bg-gray-100 rounded-md"
               >
                 <div className="flex items-center">
                   {getDomainIcon(domain.icon)}
@@ -376,24 +385,24 @@ const Sidebar = ({ currentTopic, onTopicChange }) => {
               </button>
               
               {expandedDomains[domain._id] && (
-                <div className="ml-2 pl-2 border-l border-gray-200">
+                <div className="ml-4 mt-1">
                   {/* Technology Level */}
                   {domain.technologies?.map((tech) => (
-                    <div key={tech._id}>
+                    <div key={tech._id} className="mb-1">
                       <button
                         onClick={() => toggleTechnology(tech._id)}
-                        className={`flex items-center justify-between w-full px-4 py-2 text-sm rounded-md ${
+                        className={`flex items-center justify-between w-full px-3 py-2 text-sm rounded-md ${
                           isActive(`/tutorials/${tech.slug}`)
                             ? 'bg-emerald-100 text-emerald-700 font-medium'
                             : 'text-gray-700 hover:bg-gray-100'
                         }`}
                       >
                         <div className="flex items-center">
-                          <Hash size={14} className="mr-2 flex-shrink-0" />
+                          <span className="mr-2 text-sm">{getTechnologyIcon(tech.name)}</span>
                           <span>{tech.name}</span>
                         </div>
                         {loadingStates.tutorials[tech._id] ? (
-                          <Loader size={14} className="animate-spin text-gray-500" />
+                          <Loader size={12} className="animate-spin text-gray-500" />
                         ) : (
                           expandedTechnologies[tech._id] ? (
                             <ChevronDown size={14} className="text-gray-500" />
@@ -405,19 +414,19 @@ const Sidebar = ({ currentTopic, onTopicChange }) => {
                       
                       {/* Tutorial Level */}
                       {expandedTechnologies[tech._id] && tech.tutorials && (
-                        <div className="ml-4 pl-2 border-l border-gray-200">
+                        <div className="ml-4 mt-1">
                           {tech.tutorials.map((tutorial) => (
-                            <div key={tutorial._id}>
+                            <div key={tutorial._id} className="mb-1">
                               <button
                                 onClick={() => toggleTutorial(tutorial._id)}
-                                className={`flex items-center justify-between w-full px-4 py-2 text-xs rounded-md text-gray-700 hover:bg-gray-50`}
+                                className="flex items-center justify-between w-full px-3 py-2 text-xs rounded-md text-gray-700 hover:bg-gray-50"
                               >
                                 <div className="flex items-center">
                                   <File size={12} className="mr-2 flex-shrink-0" />
-                                  <span>{tutorial.title}</span>
+                                  <span className="truncate">{tutorial.title}</span>
                                 </div>
                                 {loadingStates.lessons[tutorial._id] ? (
-                                  <Loader size={12} className="animate-spin text-gray-500" />
+                                  <Loader size={10} className="animate-spin text-gray-500" />
                                 ) : (
                                   expandedTutorials[tutorial._id] ? (
                                     <ChevronDown size={12} className="text-gray-500" />
@@ -429,14 +438,22 @@ const Sidebar = ({ currentTopic, onTopicChange }) => {
                               
                               {/* Lesson/Lecture Level */}
                               {expandedTutorials[tutorial._id] && tutorial.lessons && (
-                                <div className="ml-2 pl-2 border-l border-gray-200">
-                                  {tutorial.lessons.map((lesson) => (
+                                <div className="ml-4 mt-1">
+                                  {tutorial.lessons.map((lesson, index) => (
                                     <Link
                                       key={lesson._id}
-                                      to={`/tutorials/${tech.slug}/${tutorial.slug}/${lesson.slug || lesson._id}`}
-                                      className="flex items-center px-4 py-2 text-xs rounded-md text-gray-600 hover:bg-gray-50 hover:text-emerald-700"
+                                      to={`/lessons/${lesson._id}`}
+                                      className={`flex items-center px-3 py-2 text-xs rounded-md transition-colors ${
+                                        isActive(`/lessons/${lesson._id}`)
+                                          ? 'bg-emerald-50 text-emerald-700'
+                                          : 'text-gray-600 hover:bg-gray-50 hover:text-emerald-700'
+                                      }`}
                                     >
-                                      <div className="w-1 h-1 bg-gray-400 rounded-full mr-2"></div>
+                                      <div className="w-4 h-4 bg-gray-200 rounded-full mr-2 flex items-center justify-center">
+                                        <span className="text-xs font-medium text-gray-600">
+                                          {index + 1}
+                                        </span>
+                                      </div>
                                       <span className="truncate">{lesson.title}</span>
                                     </Link>
                                   ))}
@@ -450,7 +467,7 @@ const Sidebar = ({ currentTopic, onTopicChange }) => {
                   ))}
                   
                   {domain.technologies && domain.technologies.length === 0 && !loadingStates.technologies[domain._id] && (
-                    <div className="px-4 py-2 text-xs text-gray-500 italic">
+                    <div className="px-3 py-2 text-xs text-gray-500 italic">
                       No technologies found
                     </div>
                   )}

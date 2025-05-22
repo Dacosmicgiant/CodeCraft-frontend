@@ -1,4 +1,3 @@
-// src/pages/admin/TutorialManagement.jsx
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { 
@@ -26,19 +25,42 @@ const TutorialManagement = () => {
   
   // Load data when component mounts
   useEffect(() => {
-    fetchTutorials();
-    fetchDomains();
-    fetchTechnologies();
+    fetchInitialData();
   }, []);
   
   // Refetch tutorials when filters change
   useEffect(() => {
-    fetchTutorials(filters);
-  }, [filters]);
+    if (domains.length > 0 || technologies.length > 0) {
+      fetchTutorials(filters);
+    }
+  }, [filters, domains, technologies]);
+  
+  const fetchInitialData = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      const [domainsRes, technologiesRes] = await Promise.all([
+        domainAPI.getAll(),
+        technologyAPI.getAll()
+      ]);
+      
+      setDomains(domainsRes.data || []);
+      setTechnologies(technologiesRes.data || []);
+      
+      // Fetch tutorials after domains and technologies are loaded
+      await fetchTutorials(filters);
+      
+    } catch (err) {
+      console.error('Error fetching initial data:', err);
+      setError('Failed to load data. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
   
   const fetchTutorials = async (filterParams = {}) => {
     try {
-      setIsLoading(true);
       setError(null);
       
       const params = { ...filterParams };
@@ -46,31 +68,17 @@ const TutorialManagement = () => {
       if (params.technology === 'all') delete params.technology;
       if (params.difficulty === 'all') delete params.difficulty;
       
+      if (searchQuery.trim()) {
+        params.search = searchQuery.trim();
+      }
+      
       const response = await tutorialAPI.getAll(params);
-      setTutorials(response.data.tutorials || response.data);
+      const tutorialsList = response.data.tutorials || response.data || [];
+      setTutorials(tutorialsList);
     } catch (err) {
       console.error('Error fetching tutorials:', err);
       setError('Failed to load tutorials. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
-  const fetchDomains = async () => {
-    try {
-      const response = await domainAPI.getAll();
-      setDomains(response.data);
-    } catch (err) {
-      console.error('Error fetching domains:', err);
-    }
-  };
-  
-  const fetchTechnologies = async () => {
-    try {
-      const response = await technologyAPI.getAll();
-      setTechnologies(response.data);
-    } catch (err) {
-      console.error('Error fetching technologies:', err);
+      setTutorials([]);
     }
   };
   
@@ -97,15 +105,32 @@ const TutorialManagement = () => {
     }
   };
   
-  // Filter tutorials based on search
+  // Handle search
+  const handleSearch = () => {
+    fetchTutorials(filters);
+  };
+
+  // Handle search input change with debounce
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (domains.length > 0 || technologies.length > 0) {
+        handleSearch();
+      }
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery]);
+  
+  // Filter tutorials based on search (client-side backup)
   const filteredTutorials = tutorials.filter(tutorial => {
     if (!searchQuery) return true;
     
+    const searchLower = searchQuery.toLowerCase();
     return (
-      tutorial.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      tutorial.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      tutorial.title.toLowerCase().includes(searchLower) ||
+      tutorial.description.toLowerCase().includes(searchLower) ||
       (tutorial.tags && tutorial.tags.some(tag => 
-        tag.toLowerCase().includes(searchQuery.toLowerCase())
+        tag.toLowerCase().includes(searchLower)
       ))
     );
   });
@@ -119,7 +144,6 @@ const TutorialManagement = () => {
   // Handle actual delete
   const deleteTutorial = async () => {
     try {
-      setIsLoading(true);
       await tutorialAPI.delete(tutorialToDelete._id);
       
       // Remove from local state
@@ -129,15 +153,17 @@ const TutorialManagement = () => {
     } catch (err) {
       console.error('Error deleting tutorial:', err);
       alert('Failed to delete tutorial. Please try again.');
-    } finally {
-      setIsLoading(false);
     }
   };
   
   // Handle publish toggle
   const togglePublish = async (tutorial) => {
     try {
-      const updatedTutorial = { ...tutorial, isPublished: !tutorial.isPublished };
+      const updatedTutorial = { 
+        ...tutorial, 
+        isPublished: !tutorial.isPublished 
+      };
+      
       await tutorialAPI.update(tutorial._id, updatedTutorial);
       
       // Update in local state
@@ -148,6 +174,42 @@ const TutorialManagement = () => {
       console.error('Error updating tutorial:', err);
       alert('Failed to update tutorial. Please try again.');
     }
+  };
+
+  // Get name by ID helpers
+  const getDomainName = (domainId) => {
+    if (!domainId) return 'Unknown Domain';
+    const domain = domains.find(d => d._id === domainId);
+    return domain ? domain.name : 'Unknown Domain';
+  };
+
+  const getTechnologyName = (technologyId) => {
+    if (!technologyId) return 'Unknown Technology';
+    const technology = technologies.find(t => t._id === technologyId);
+    return technology ? technology.name : 'Unknown Technology';
+  };
+
+  // Safely extract names from tutorial objects
+  const getTutorialDomainName = (tutorial) => {
+    if (tutorial.domain) {
+      if (typeof tutorial.domain === 'object') {
+        return tutorial.domain.name || 'Unknown Domain';
+      } else {
+        return getDomainName(tutorial.domain);
+      }
+    }
+    return 'Unknown Domain';
+  };
+
+  const getTutorialTechnologyName = (tutorial) => {
+    if (tutorial.technology) {
+      if (typeof tutorial.technology === 'object') {
+        return tutorial.technology.name || 'Unknown Technology';
+      } else {
+        return getTechnologyName(tutorial.technology);
+      }
+    }
+    return 'Unknown Technology';
   };
 
   return (
@@ -199,7 +261,7 @@ const TutorialManagement = () => {
               <span>
                 {filters.domain === 'all' 
                   ? 'All Domains' 
-                  : domains.find(d => d._id === filters.domain)?.name || 'Domain'}
+                  : getDomainName(filters.domain)}
               </span>
               <ChevronDown size={14} className={`transition-transform ${activeFilter === 'domain' && showFilterMenu ? 'rotate-180' : ''}`} />
             </button>
@@ -241,7 +303,7 @@ const TutorialManagement = () => {
               <span>
                 {filters.technology === 'all' 
                   ? 'All Technologies' 
-                  : technologies.find(t => t._id === filters.technology)?.name || 'Technology'}
+                  : getTechnologyName(filters.technology)}
               </span>
               <ChevronDown size={14} className={`transition-transform ${activeFilter === 'technology' && showFilterMenu ? 'rotate-180' : ''}`} />
             </button>
@@ -345,7 +407,7 @@ const TutorialManagement = () => {
       )}
       
       {/* Loading State */}
-      {isLoading && filteredTutorials.length === 0 ? (
+      {isLoading ? (
         <div className="text-center py-8">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-emerald-600"></div>
           <p className="mt-2 text-gray-500">Loading tutorials...</p>
@@ -368,7 +430,7 @@ const TutorialManagement = () => {
           </Link>
         </div>
       ) : (
-        /* Tutorials Table/Grid */
+        /* Tutorials Grid */
         <div className="bg-white rounded-lg shadow-sm overflow-hidden">
           <div className="grid grid-cols-1 divide-y">
             {filteredTutorials.map(tutorial => (
@@ -377,10 +439,10 @@ const TutorialManagement = () => {
                   <div className="flex items-start space-x-3">
                     {/* Icon/Image */}
                     <div className={`h-12 w-12 rounded-md flex items-center justify-center bg-gradient-to-br 
-                      ${tutorial.technology?.name === 'HTML' ? 'from-orange-500 to-red-500' : 
-                        tutorial.technology?.name === 'CSS' ? 'from-blue-500 to-cyan-500' : 
-                        tutorial.technology?.name === 'JavaScript' ? 'from-yellow-400 to-yellow-600' : 
-                        tutorial.technology?.name === 'React' ? 'from-cyan-500 to-blue-500' : 
+                      ${getTutorialTechnologyName(tutorial).toLowerCase().includes('html') ? 'from-orange-500 to-red-500' : 
+                        getTutorialTechnologyName(tutorial).toLowerCase().includes('css') ? 'from-blue-500 to-cyan-500' : 
+                        getTutorialTechnologyName(tutorial).toLowerCase().includes('javascript') ? 'from-yellow-400 to-yellow-600' : 
+                        getTutorialTechnologyName(tutorial).toLowerCase().includes('react') ? 'from-cyan-500 to-blue-500' : 
                         'from-emerald-500 to-teal-600'}`}>
                       <BookOpen className="h-6 w-6 text-white" />
                     </div>
@@ -399,18 +461,14 @@ const TutorialManagement = () => {
                       
                       {/* Tags & Metadata */}
                       <div className="flex flex-wrap items-center mt-2 text-xs text-gray-500 gap-3">
-                        {tutorial.domain && (
-                          <span className="flex items-center">
-                            <Layers size={12} className="mr-1" />
-                            {tutorial.domain.name || 'Unknown Domain'}
-                          </span>
-                        )}
-                        {tutorial.technology && (
-                          <span className="flex items-center">
-                            <BookOpen size={12} className="mr-1" />
-                            {tutorial.technology.name || 'Unknown Technology'}
-                          </span>
-                        )}
+                        <span className="flex items-center">
+                          <Layers size={12} className="mr-1" />
+                          {getTutorialDomainName(tutorial)}
+                        </span>
+                        <span className="flex items-center">
+                          <BookOpen size={12} className="mr-1" />
+                          {getTutorialTechnologyName(tutorial)}
+                        </span>
                         <span className={`px-2 py-0.5 rounded-full ${
                           tutorial.difficulty === 'beginner' ? 'bg-green-50 text-green-700' :
                           tutorial.difficulty === 'intermediate' ? 'bg-blue-50 text-blue-700' :
@@ -488,16 +546,14 @@ const TutorialManagement = () => {
               <button
                 onClick={() => setShowDeleteModal(false)}
                 className="px-4 py-2 border rounded-md hover:bg-gray-100"
-                disabled={isLoading}
               >
                 Cancel
               </button>
               <button
                 onClick={deleteTutorial}
                 className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 flex items-center"
-                disabled={isLoading}
               >
-                {isLoading ? 'Deleting...' : 'Delete'}
+                Delete
               </button>
             </div>
           </div>

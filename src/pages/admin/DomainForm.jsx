@@ -1,4 +1,3 @@
-// src/pages/admin/DomainForm.jsx
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Save, AlertCircle, Check } from 'lucide-react';
@@ -36,13 +35,17 @@ const DomainForm = () => {
       const domain = response.data;
       
       setFormData({
-        name: domain.name,
-        description: domain.description,
+        name: domain.name || '',
+        description: domain.description || '',
         icon: domain.icon || 'folder'
       });
     } catch (err) {
       console.error('Error fetching domain:', err);
-      setApiError('Failed to load domain data. Please try again.');
+      if (err.response?.status === 404) {
+        setApiError('Domain not found.');
+      } else {
+        setApiError('Failed to load domain data. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -71,10 +74,14 @@ const DomainForm = () => {
     
     if (!formData.name.trim()) {
       newErrors.name = 'Domain name is required';
+    } else if (formData.name.trim().length < 2) {
+      newErrors.name = 'Domain name must be at least 2 characters long';
     }
     
     if (!formData.description.trim()) {
       newErrors.description = 'Description is required';
+    } else if (formData.description.trim().length < 10) {
+      newErrors.description = 'Description must be at least 10 characters long';
     }
     
     setErrors(newErrors);
@@ -91,10 +98,17 @@ const DomainForm = () => {
       setSaveSuccess(false);
       
       try {
+        const domainData = {
+          name: formData.name.trim(),
+          description: formData.description.trim(),
+          icon: formData.icon
+        };
+        
+        let response;
         if (isEditing) {
-          await domainAPI.update(id, formData);
+          response = await domainAPI.update(id, domainData);
         } else {
-          await domainAPI.create(formData);
+          response = await domainAPI.create(domainData);
         }
         
         setSaveSuccess(true);
@@ -108,6 +122,8 @@ const DomainForm = () => {
         
         if (err.response?.data?.message) {
           setApiError(err.response.data.message);
+        } else if (err.response?.status === 400) {
+          setApiError('Please check your input data and try again.');
         } else {
           setApiError('Failed to save domain. Please try again.');
         }
@@ -145,7 +161,7 @@ const DomainForm = () => {
         </div>
       )}
       
-      {isLoading && !formData.name ? (
+      {isLoading && !formData.name && isEditing ? (
         <div className="flex justify-center py-8">
           <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-emerald-600"></div>
         </div>
@@ -166,6 +182,7 @@ const DomainForm = () => {
                   errors.name ? 'border-red-300' : 'border-gray-300'
                 } focus:outline-none focus:ring-2 focus:ring-emerald-500`}
                 placeholder="e.g., Web Development"
+                disabled={isLoading}
               />
               {errors.name && (
                 <p className="mt-1 text-sm text-red-600">{errors.name}</p>
@@ -186,6 +203,7 @@ const DomainForm = () => {
                   errors.description ? 'border-red-300' : 'border-gray-300'
                 } focus:outline-none focus:ring-2 focus:ring-emerald-500`}
                 placeholder="Brief description of this domain"
+                disabled={isLoading}
               ></textarea>
               {errors.description && (
                 <p className="mt-1 text-sm text-red-600">{errors.description}</p>
@@ -202,6 +220,7 @@ const DomainForm = () => {
                 value={formData.icon}
                 onChange={handleChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                disabled={isLoading}
               >
                 <option value="folder">Folder</option>
                 <option value="code">Code</option>

@@ -1,4 +1,3 @@
-// src/pages/admin/LessonEditor.jsx
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { 
@@ -50,7 +49,8 @@ const LessonEditor = () => {
     try {
       setIsTutorialsLoading(true);
       const response = await tutorialAPI.getAll();
-      setTutorials(response.data.tutorials || response.data); // Handle different response formats
+      const tutorialsList = response.data.tutorials || response.data || [];
+      setTutorials(tutorialsList);
     } catch (err) {
       console.error('Error fetching tutorials:', err);
       setApiError('Failed to load tutorials. Please try again.');
@@ -67,17 +67,24 @@ const LessonEditor = () => {
       const response = await lessonAPI.getById(lessonId);
       const lesson = response.data;
       
+      // Safely extract tutorial ID
+      const tutorialId = lesson.tutorial?._id || lesson.tutorial || '';
+      
       setFormData({
-        title: lesson.title,
-        order: lesson.order,
-        duration: lesson.duration,
-        tutorial: lesson.tutorial._id || lesson.tutorial,
+        title: lesson.title || '',
+        order: lesson.order || 1,
+        duration: lesson.duration || 10,
+        tutorial: tutorialId,
         content: lesson.content || [],
         isPublished: lesson.isPublished || false
       });
     } catch (err) {
       console.error('Error fetching lesson:', err);
-      setApiError('Failed to load lesson data. Please try again.');
+      if (err.response?.status === 404) {
+        setApiError('Lesson not found.');
+      } else {
+        setApiError('Failed to load lesson data. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -139,6 +146,16 @@ const LessonEditor = () => {
           }
         };
         break;
+      case 'quiz':
+        newBlock = {
+          type: 'quiz',
+          data: {
+            question: '',
+            options: ['', '', '', ''],
+            correctAnswer: 0
+          }
+        };
+        break;
       default:
         return;
     }
@@ -162,10 +179,8 @@ const LessonEditor = () => {
     const newContent = [...formData.content];
     
     if (direction === 'up' && index > 0) {
-      // Swap with previous item
       [newContent[index], newContent[index-1]] = [newContent[index-1], newContent[index]];
     } else if (direction === 'down' && index < newContent.length - 1) {
-      // Swap with next item
       [newContent[index], newContent[index+1]] = [newContent[index+1], newContent[index]];
     }
     
@@ -182,10 +197,12 @@ const LessonEditor = () => {
     // Handle nested data fields
     if (field.includes('.')) {
       const [parent, child] = field.split('.');
-      newContent[index].data = {
-        ...newContent[index].data,
-        [child]: value
-      };
+      if (parent === 'data') {
+        newContent[index].data = {
+          ...newContent[index].data,
+          [child]: value
+        };
+      }
     } else if (field === 'data') {
       // Update entire data object
       newContent[index].data = value;
@@ -193,6 +210,23 @@ const LessonEditor = () => {
       // Update direct field
       newContent[index][field] = value;
     }
+    
+    setFormData(prev => ({
+      ...prev,
+      content: newContent
+    }));
+  };
+
+  // Update quiz options
+  const updateQuizOption = (blockIndex, optionIndex, value) => {
+    const newContent = [...formData.content];
+    const newOptions = [...newContent[blockIndex].data.options];
+    newOptions[optionIndex] = value;
+    
+    newContent[blockIndex].data = {
+      ...newContent[blockIndex].data,
+      options: newOptions
+    };
     
     setFormData(prev => ({
       ...prev,
@@ -236,21 +270,19 @@ const LessonEditor = () => {
       try {
         // Format data for API
         const lessonData = {
-          title: formData.title,
+          title: formData.title.trim(),
           order: parseInt(formData.order),
           duration: parseInt(formData.duration),
           content: formData.content,
           isPublished: formData.isPublished
         };
         
+        let response;
         if (isEditing) {
-          await lessonAPI.update(id, lessonData);
-          
-          // For content update, we need to use the special endpoint
-          await lessonAPI.updateContent(id, formData.content);
+          response = await lessonAPI.update(id, lessonData);
         } else {
-          // For new lessons, we need to specify the tutorial
-          await lessonAPI.create(formData.tutorial, lessonData);
+          // For new lessons, use the tutorial-specific endpoint
+          response = await lessonAPI.create(formData.tutorial, lessonData);
         }
         
         setSaveSuccess(true);
@@ -264,6 +296,10 @@ const LessonEditor = () => {
         
         if (err.response?.data?.message) {
           setApiError(err.response.data.message);
+        } else if (err.response?.status === 400) {
+          setApiError('Please check your input data and try again.');
+        } else if (err.response?.status === 404) {
+          setApiError('Tutorial not found. Please refresh and try again.');
         } else {
           setApiError('Failed to save lesson. Please try again.');
         }
@@ -271,6 +307,12 @@ const LessonEditor = () => {
         setIsLoading(false);
       }
     }
+  };
+
+  // Get tutorial name by ID
+  const getTutorialName = (tutorialId) => {
+    const tutorial = tutorials.find(t => t._id === tutorialId);
+    return tutorial ? tutorial.title : 'Unknown Tutorial';
   };
 
   // Render content block editor based on type
@@ -309,6 +351,8 @@ const LessonEditor = () => {
                 <option value="javascript">JavaScript</option>
                 <option value="python">Python</option>
                 <option value="java">Java</option>
+                <option value="cpp">C++</option>
+                <option value="json">JSON</option>
               </select>
             </div>
             <textarea
@@ -404,16 +448,62 @@ const LessonEditor = () => {
                   src={block.data.url} 
                   alt={block.data.alt || 'Preview'} 
                   className="max-h-64 rounded-md object-contain mx-auto"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                  }}
                 />
               </div>
             )}
+          </div>
+        );
+
+      case 'quiz':
+        return (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Quiz Question
+            </label>
+            <input
+              type="text"
+              value={block.data?.question || ''}
+              onChange={(e) => updateContentBlock(index, 'data.question', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              placeholder="Enter your question"
+            />
+            
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Answer Options
+              </label>
+              {(block.data?.options || []).map((option, optionIndex) => (
+                <div key={optionIndex} className="flex items-center mb-2">
+                  <input
+                    type="radio"
+                    name={`quiz-${index}`}
+                    checked={block.data?.correctAnswer === optionIndex}
+                    onChange={() => updateContentBlock(index, 'data.correctAnswer', optionIndex)}
+                    className="mr-2"
+                  />
+                  <input
+                    type="text"
+                    value={option}
+                    onChange={(e) => updateQuizOption(index, optionIndex, e.target.value)}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    placeholder={`Option ${optionIndex + 1}`}
+                  />
+                </div>
+              ))}
+              <p className="text-xs text-gray-500 mt-1">
+                Select the radio button next to the correct answer
+              </p>
+            </div>
           </div>
         );
         
       default:
         return (
           <div className="text-gray-500 italic">
-            Unknown content type
+            Unknown content type: {block.type}
           </div>
         );
     }
@@ -471,6 +561,7 @@ const LessonEditor = () => {
                     errors.title ? 'border-red-300' : 'border-gray-300'
                   } focus:outline-none focus:ring-2 focus:ring-emerald-500`}
                   placeholder="e.g., Introduction to HTML"
+                  disabled={isLoading}
                 />
                 {errors.title && (
                   <p className="mt-1 text-sm text-red-600">{errors.title}</p>
@@ -490,7 +581,7 @@ const LessonEditor = () => {
                     className={`w-full px-3 py-2 border rounded-md ${
                       errors.tutorial ? 'border-red-300' : 'border-gray-300'
                     } focus:outline-none focus:ring-2 focus:ring-emerald-500`}
-                    disabled={isEditing || isTutorialsLoading}
+                    disabled={isEditing || isTutorialsLoading || isLoading}
                   >
                     <option value="">Select a tutorial</option>
                     {tutorials.map(tutorial => (
@@ -499,6 +590,9 @@ const LessonEditor = () => {
                       </option>
                     ))}
                   </select>
+                  {isTutorialsLoading && (
+                    <p className="mt-1 text-sm text-gray-500">Loading tutorials...</p>
+                  )}
                   {errors.tutorial && (
                     <p className="mt-1 text-sm text-red-600">{errors.tutorial}</p>
                   )}
@@ -518,6 +612,7 @@ const LessonEditor = () => {
                     className={`w-full px-3 py-2 border rounded-md ${
                       errors.order ? 'border-red-300' : 'border-gray-300'
                     } focus:outline-none focus:ring-2 focus:ring-emerald-500`}
+                    disabled={isLoading}
                   />
                   {errors.order && (
                     <p className="mt-1 text-sm text-red-600">{errors.order}</p>
@@ -538,6 +633,7 @@ const LessonEditor = () => {
                     className={`w-full px-3 py-2 border rounded-md ${
                       errors.duration ? 'border-red-300' : 'border-gray-300'
                     } focus:outline-none focus:ring-2 focus:ring-emerald-500`}
+                    disabled={isLoading}
                   />
                   {errors.duration && (
                     <p className="mt-1 text-sm text-red-600">{errors.duration}</p>
@@ -553,11 +649,22 @@ const LessonEditor = () => {
                   checked={formData.isPublished}
                   onChange={handleChange}
                   className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
+                  disabled={isLoading}
                 />
                 <label htmlFor="isPublished" className="ml-2 block text-sm text-gray-900">
                   Publish this lesson (make it visible to users)
                 </label>
               </div>
+
+              {/* Show current assignment when editing */}
+              {isEditing && formData.tutorial && !isLoading && (
+                <div className="bg-gray-50 p-4 rounded-md">
+                  <h3 className="text-sm font-medium text-gray-700 mb-2">Current Assignment:</h3>
+                  <p className="text-sm text-gray-600">
+                    Tutorial: <span className="font-medium">{getTutorialName(formData.tutorial)}</span>
+                  </p>
+                </div>
+              )}
             </div>
           </div>
           
@@ -568,6 +675,7 @@ const LessonEditor = () => {
               <div className="relative group">
                 <button 
                   className="px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 flex items-center gap-2"
+                  disabled={isLoading}
                 >
                   <Plus size={18} />
                   Add Content
@@ -603,6 +711,13 @@ const LessonEditor = () => {
                       <Image size={16} className="mr-2" />
                       Image
                     </button>
+                    <button 
+                      onClick={() => addContentBlock('quiz')}
+                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      <ExternalLink size={16} className="mr-2" />
+                      Quiz
+                    </button>
                   </div>
                 </div>
               </div>
@@ -629,7 +744,7 @@ const LessonEditor = () => {
                         <button
                           onClick={() => moveContentBlock(index, 'up')}
                           className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md"
-                          disabled={index === 0}
+                          disabled={index === 0 || isLoading}
                           title="Move Up"
                         >
                           <ArrowUp size={14} className={index === 0 ? 'opacity-50' : ''} />
@@ -637,7 +752,7 @@ const LessonEditor = () => {
                         <button
                           onClick={() => moveContentBlock(index, 'down')}
                           className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md"
-                          disabled={index === formData.content.length - 1}
+                          disabled={index === formData.content.length - 1 || isLoading}
                           title="Move Down"
                         >
                           <ArrowDown size={14} className={index === formData.content.length - 1 ? 'opacity-50' : ''} />
@@ -646,6 +761,7 @@ const LessonEditor = () => {
                           onClick={() => removeContentBlock(index)}
                           className="p-1 text-gray-400 hover:text-red-600 hover:bg-gray-100 rounded-md"
                           title="Remove Block"
+                          disabled={isLoading}
                         >
                           <Trash2 size={14} />
                         </button>

@@ -1,7 +1,6 @@
 import axios from 'axios';
 
-// Update this to point to your local backend
-// In Vite, use import.meta.env instead of process.env
+// Update this to point to your backend
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api/v1';
 
 const api = axios.create({
@@ -21,7 +20,7 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Add a response interceptor - keep this part from your original file
+// Add a response interceptor
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -32,7 +31,7 @@ api.interceptors.response.use(
       originalRequest._retry = true;
       
       try {
-        // Logout for now, would implement refresh token logic here
+        // Clear auth data and redirect to login
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         window.location.href = '/login';
@@ -45,7 +44,7 @@ api.interceptors.response.use(
   }
 );
 
-// Auth API calls - update these to match our backend endpoints
+// Auth API calls - matches your backend exactly
 export const authAPI = {
   register: (userData) => api.post('/auth/register', userData),
   login: (credentials) => api.post('/auth/login', credentials),
@@ -53,8 +52,26 @@ export const authAPI = {
   getProfile: () => api.get('/auth/me'),
 };
 
-// Keep other API functions from your original file
-export const tutorialsAPI = {
+// Domain API calls
+export const domainAPI = {
+  getAll: () => api.get('/domains'),
+  getById: (id) => api.get(`/domains/${id}`),
+  create: (data) => api.post('/domains', data),
+  update: (id, data) => api.put(`/domains/${id}`, data),
+  delete: (id) => api.delete(`/domains/${id}`),
+};
+
+// Technology API calls
+export const technologyAPI = {
+  getAll: (params) => api.get('/technologies', { params }),
+  getById: (id) => api.get(`/technologies/${id}`),
+  create: (data) => api.post('/technologies', data),
+  update: (id, data) => api.put(`/technologies/${id}`, data),
+  delete: (id) => api.delete(`/technologies/${id}`),
+};
+
+// Tutorial API calls - matches your backend structure
+export const tutorialAPI = {
   getAll: (params) => api.get('/tutorials', { params }),
   getById: (id) => api.get(`/tutorials/${id}`),
   create: (data) => api.post('/tutorials', data),
@@ -62,13 +79,17 @@ export const tutorialsAPI = {
   delete: (id) => api.delete(`/tutorials/${id}`),
 };
 
-export const exercisesAPI = {
-  getAll: (params) => api.get('/exercises', { params }),
-  getById: (id) => api.get(`/exercises/${id}`),
-  submit: (id, solution) => api.post(`/exercises/${id}/submit`, { solution }),
+// Lesson API calls
+export const lessonAPI = {
+  getByTutorial: (tutorialId) => api.get(`/tutorials/${tutorialId}/lessons`),
+  getById: (id) => api.get(`/lessons/${id}`),
+  create: (tutorialId, data) => api.post(`/tutorials/${tutorialId}/lessons`, data),
+  update: (id, data) => api.put(`/lessons/${id}`, data),
+  updateContent: (id, content) => api.put(`/lessons/${id}/content`, { content }),
+  delete: (id) => api.delete(`/lessons/${id}`),
 };
 
-// User API calls
+// User API calls - matches your backend
 export const userAPI = {
   updateProfile: (data) => api.put('/users/profile', data),
   getProfile: () => api.get('/users/profile'),
@@ -78,37 +99,12 @@ export const userAPI = {
   removeBookmark: (tutorialId) => api.delete(`/users/bookmarks/${tutorialId}`),
 };
 
-// Add these to your existing api.js file
-export const domainAPI = {
-  getAll: () => api.get('/domains'),
-  getById: (id) => api.get(`/domains/${id}`),
-  create: (data) => api.post('/domains', data),
-  update: (id, data) => api.put(`/domains/${id}`, data),
-  delete: (id) => api.delete(`/domains/${id}`),
+// Legacy API calls for backward compatibility
+export const tutorialsAPI = tutorialAPI;
+export const exercisesAPI = {
+  getAll: (params) => api.get('/exercises', { params }),
+  getById: (id) => api.get(`/exercises/${id}`),
+  submit: (id, solution) => api.post(`/exercises/${id}/submit`, { solution }),
 };
 
-export const technologyAPI = {
-  getAll: (params) => api.get('/technologies', { params }),
-  getById: (id) => api.get(`/technologies/${id}`),
-  create: (data) => api.post('/technologies', data),
-  update: (id, data) => api.put(`/technologies/${id}`, data),
-  delete: (id) => api.delete(`/technologies/${id}`),
-};
-
-export const tutorialAPI = {
-  getAll: (params) => api.get('/tutorials', { params }),
-  getById: (id) => api.get(`/tutorials/${id}`),
-  create: (data) => api.post('/tutorials', data),
-  update: (id, data) => api.put(`/tutorials/${id}`, data),
-  delete: (id) => api.delete(`/tutorials/${id}`),
-};
-
-export const lessonAPI = {
-  getByTutorial: (tutorialId) => api.get(`/tutorials/${tutorialId}/lessons`),
-  getById: (id) => api.get(`/lessons/${id}`),
-  create: (tutorialId, data) => api.post(`/tutorials/${tutorialId}/lessons`, data),
-  update: (id, data) => api.put(`/lessons/${id}`, data),
-  updateContent: (id, content) => api.put(`/lessons/${id}/content`, { content }),
-  delete: (id) => api.delete(`/lessons/${id}`),
-};
 export default api;

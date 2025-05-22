@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { BookOpen, Code, Check, ArrowRight, Star, Users, Award } from 'lucide-react';
+import { BookOpen, Code, Check, ArrowRight, Star, Users, Award, Loader } from 'lucide-react';
+import { tutorialAPI, domainAPI, technologyAPI } from '../services/api';
 
 const HomePage = () => {
   // Animation states
@@ -12,7 +13,45 @@ const HomePage = () => {
     cta: false
   });
 
-  // Intersection Observer setup
+  // Data states
+  const [featuredTutorials, setFeaturedTutorials] = useState([]);
+  const [domains, setDomains] = useState([]);
+  const [technologies, setTechnologies] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Fetch data from backend
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+        
+        // Fetch domains, technologies, and featured tutorials
+        const [domainsRes, technologiesRes, tutorialsRes] = await Promise.all([
+          domainAPI.getAll(),
+          technologyAPI.getAll(),
+          tutorialAPI.getAll({ limit: 6, sort: '-createdAt' }) // Get 6 latest tutorials
+        ]);
+
+        setDomains(domainsRes.data);
+        setTechnologies(technologiesRes.data);
+        
+        // Extract tutorials from response (handle pagination structure)
+        const tutorials = tutorialsRes.data.tutorials || tutorialsRes.data;
+        setFeaturedTutorials(tutorials);
+
+      } catch (err) {
+        console.error('Error fetching homepage data:', err);
+        setError('Failed to load content. Please try again later.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // Intersection Observer setup for animations
   useEffect(() => {
     const observerOptions = {
       root: null,
@@ -48,6 +87,28 @@ const HomePage = () => {
     };
   }, []);
 
+  // Get icon for technology
+  const getTechnologyIcon = (techName) => {
+    const name = techName?.toLowerCase() || '';
+    if (name.includes('html')) return <span className="text-orange-500 font-bold">HTML</span>;
+    if (name.includes('css')) return <span className="text-blue-500 font-bold">CSS</span>;
+    if (name.includes('javascript')) return <span className="text-yellow-500 font-bold">JS</span>;
+    if (name.includes('react')) return <span className="text-cyan-500 font-bold">React</span>;
+    if (name.includes('node')) return <span className="text-green-500 font-bold">Node</span>;
+    if (name.includes('python')) return <span className="text-blue-600 font-bold">Py</span>;
+    return <Code className="text-gray-500" />;
+  };
+
+  // Get difficulty color
+  const getDifficultyColor = (difficulty) => {
+    switch (difficulty) {
+      case 'beginner': return 'bg-green-100 text-green-800';
+      case 'intermediate': return 'bg-blue-100 text-blue-800';
+      case 'advanced': return 'bg-purple-100 text-purple-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
   return (
     <div className="space-y-16 pb-16">
       {/* Hero Section */}
@@ -68,7 +129,7 @@ const HomePage = () => {
               </p>
               <div className="flex flex-wrap gap-4">
                 <Link 
-                  to="/tutorials/html" 
+                  to="/tutorials" 
                   className="px-6 py-3 bg-white text-emerald-600 font-medium rounded-md hover:bg-gray-100 transition-colors inline-flex items-center gap-2"
                 >
                   Start Learning <ArrowRight size={18} />
@@ -77,7 +138,7 @@ const HomePage = () => {
               <div className="flex items-center gap-4 text-sm pt-2">
                 <div className="flex items-center gap-1">
                   <Users size={16} />
-                  <span>100K+ Users</span>
+                  <span>1K+ Users</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <Star size={16} />
@@ -108,7 +169,7 @@ const HomePage = () => {
 </head>
 <body>
   <h1>Hello, World!</h1>
-  <p class="highlight">Welcome to Shubhali's CodeCraft</p>
+  <p class="highlight">Welcome to CodeCraft</p>
   
   <script>
     document.querySelector('.highlight')
@@ -144,33 +205,30 @@ const HomePage = () => {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-          <CourseCard 
-            title="HTML & CSS Fundamentals" 
-            description="Learn the building blocks of the web and create beautiful, responsive websites."
-            icon={<BookOpen className="text-blue-500" />}
-            lessons={24}
-            level="Beginner"
-            path="/tutorials/html"
-            popular={true}
-          />
-          <CourseCard 
-            title="JavaScript Essentials" 
-            description="Master the language of the web and add interactivity to your websites."
-            icon={<Code className="text-yellow-500" />}
-            lessons={32}
-            level="Intermediate"
-            path="/tutorials/javascript"
-          />
-          <CourseCard 
-            title="React Development" 
-            description="Build modern, reactive user interfaces with the most popular frontend library."
-            icon={<Code className="text-blue-600" />}
-            lessons={28}
-            level="Advanced"
-            path="/tutorials/react"
-          />
-        </div>
+        {isLoading && (
+          <div className="flex justify-center py-12">
+            <Loader size={32} className="animate-spin text-emerald-600" />
+          </div>
+        )}
+
+        {error && (
+          <div className="text-center py-8 text-red-600">
+            <p>{error}</p>
+          </div>
+        )}
+
+        {!isLoading && !error && (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {featuredTutorials.slice(0, 6).map((tutorial, index) => (
+              <CourseCard 
+                key={tutorial._id}
+                tutorial={tutorial}
+                icon={getTechnologyIcon(tutorial.technology?.name)}
+                popular={index === 0} // Mark first tutorial as popular
+              />
+            ))}
+          </div>
+        )}
 
         <div className="text-center mt-12">
           <Link 
@@ -191,7 +249,7 @@ const HomePage = () => {
       >
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold mb-4">How Shubhali's CodeCraft Works</h2>
+            <h2 className="text-3xl font-bold mb-4">How CodeCraft Works</h2>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
               Our learning platform is designed to make coding accessible for everyone through a proven, step-by-step approach
             </p>
@@ -227,25 +285,25 @@ const HomePage = () => {
         <div className="text-center mb-12">
           <h2 className="text-3xl font-bold mb-4">What Our Students Say</h2>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Join thousands of satisfied learners who have transformed their careers with Shubhali's CodeCraft
+            Join thousands of satisfied learners who have transformed their careers with CodeCraft
           </p>
         </div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
           <TestimonialCard 
-            quote="Shubhali's CodeCraft helped me transition from a non-technical role to a full-stack developer in just 6 months. The interactive tutorials made all the difference."
+            quote="CodeCraft helped me transition from a non-technical role to a full-stack developer in just 6 months. The interactive tutorials made all the difference."
             name="Alex Morgan"
             title="Software Developer"
             rating={5}
           />
           <TestimonialCard 
-            quote="The way concepts are explained with practical examples makes learning coding so much easier. I've tried other platforms, but none compare to Shubhali's CodeCraft."
+            quote="The way concepts are explained with practical examples makes learning coding so much easier. I've tried other platforms, but none compare to CodeCraft."
             name="Sarah Johnson"
             title="Web Designer"
             rating={5}
           />
           <TestimonialCard 
-            quote="As a computer science student, Shubhali's CodeCraft has been an invaluable supplement to my studies. The examples are challenging and engaging."
+            quote="As a computer science student, CodeCraft has been an invaluable supplement to my studies. The examples are challenging and engaging."
             name="James Wilson"
             title="CS Student"
             rating={4}
@@ -263,7 +321,7 @@ const HomePage = () => {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl font-bold mb-4">Ready to Start Your Coding Journey?</h2>
           <p className="text-xl opacity-90 mb-8">
-            Join thousands of students learning to code on Shubhali's CodeCraft. Create your free account today.
+            Join thousands of students learning to code on CodeCraft. Create your free account today.
           </p>
           <div className="flex flex-wrap justify-center gap-4">
             <Link 
@@ -273,7 +331,7 @@ const HomePage = () => {
               Sign Up For Free
             </Link>
             <Link 
-              to="/tutorials/html" 
+              to="/tutorials" 
               className="px-6 py-3 bg-emerald-700 text-white font-medium rounded-md hover:bg-emerald-800 transition-colors"
             >
               Explore Tutorials
@@ -285,8 +343,8 @@ const HomePage = () => {
   );
 };
 
-// Course Card Component
-const CourseCard = ({ title, description, icon, lessons, level, path, popular = false }) => (
+// Course Card Component - Updated to use backend data
+const CourseCard = ({ tutorial, icon, popular = false }) => (
   <div className="bg-white rounded-lg shadow-sm border hover:shadow-md transition-shadow overflow-hidden">
     {popular && (
       <div className="bg-emerald-600 text-white text-xs font-medium py-1 px-2 text-center">
@@ -297,19 +355,19 @@ const CourseCard = ({ title, description, icon, lessons, level, path, popular = 
       <div className="bg-gray-100 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
         {icon}
       </div>
-      <h3 className="text-lg font-bold mb-2">{title}</h3>
-      <p className="text-gray-600 mb-4">{description}</p>
+      <h3 className="text-lg font-bold mb-2">{tutorial.title}</h3>
+      <p className="text-gray-600 mb-4">{tutorial.description}</p>
       <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
         <div className="flex items-center gap-1">
           <BookOpen size={16} />
-          <span>{lessons} Lessons</span>
+          <span>{tutorial.lessons?.length || 0} Lessons</span>
         </div>
-        <div className="bg-gray-100 px-2 py-1 rounded">
-          {level}
+        <div className={`px-2 py-1 rounded text-xs ${getDifficultyColor(tutorial.difficulty)}`}>
+          {tutorial.difficulty?.charAt(0).toUpperCase() + tutorial.difficulty?.slice(1) || 'Beginner'}
         </div>
       </div>
       <Link 
-        to={path} 
+        to={`/tutorials/${tutorial.slug || tutorial._id}`}
         className="block w-full py-2 bg-emerald-600 text-white text-center rounded-md hover:bg-emerald-700 transition-colors"
       >
         Start Learning
@@ -347,5 +405,15 @@ const TestimonialCard = ({ quote, name, title, rating }) => (
     </div>
   </div>
 );
+
+// Helper function
+const getDifficultyColor = (difficulty) => {
+  switch (difficulty) {
+    case 'beginner': return 'bg-green-100 text-green-800';
+    case 'intermediate': return 'bg-blue-100 text-blue-800';
+    case 'advanced': return 'bg-purple-100 text-purple-800';
+    default: return 'bg-gray-100 text-gray-800';
+  }
+};
 
 export default HomePage;

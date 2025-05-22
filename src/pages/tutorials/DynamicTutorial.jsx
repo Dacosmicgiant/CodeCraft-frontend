@@ -7,9 +7,12 @@ import {
   BookOpen, 
   AlertCircle,
   Clock,
-  BarChart 
+  BarChart,
+  Loader,
+  Play,
+  CheckCircle
 } from 'lucide-react';
-import { tutorialAPI, lessonAPI, userAPI } from '../../services/api';
+import { tutorialAPI, lessonAPI, userAPI, technologyAPI, domainAPI } from '../../services/api';
 import TutorialContent from '../../components/tutorial/TutorialContent';
 import NotesComponent from '../../components/tutorial/NotesComponent';
 import ResourceList from '../../components/tutorial/ResourceList';
@@ -26,82 +29,153 @@ const DynamicTutorial = () => {
   const [error, setError] = useState(null);
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [userProgress, setUserProgress] = useState(0);
+  const [relatedTutorials, setRelatedTutorials] = useState([]);
   
   // Fetch tutorial data based on route params
   useEffect(() => {
-    const fetchTutorial = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        
-        // First try to fetch by slug if available
-        let response;
-        if (tutorialSlug) {
-          response = await tutorialAPI.getById(tutorialSlug);
-        } else {
-          // Fetch tutorials by technology and find the first one
-          const params = {};
-          if (technology) params.technology = technology;
-          response = await tutorialAPI.getAll(params);
-          
-          const tutorials = response.data.tutorials || response.data;
-          if (tutorials && tutorials.length > 0) {
-            response = { data: tutorials[0] };
-          } else {
-            throw new Error('No tutorials found for this technology');
-          }
+    fetchTutorialData();
+  }, [domain, technology, tutorialSlug]);
+
+  // Fetch user-specific data when authenticated
+  useEffect(() => {
+    if (isAuthenticated && tutorial) {
+      fetchUserData();
+    }
+  }, [isAuthenticated, tutorial]);
+
+  const fetchTutorialData = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      let tutorialData = null;
+      let lessonsData = [];
+
+      // Strategy 1: Direct tutorial access via slug
+      if (tutorialSlug) {
+        try {
+          const tutorialResponse = await tutorialAPI.getById(tutorialSlug);
+          tutorialData = tutorialResponse.data;
+        } catch (err) {
+          console.log('Tutorial not found by slug, trying other methods...');
         }
-        
-        setTutorial(response.data);
-        
-        // Fetch lessons for this tutorial
-        if (response.data._id) {
-          const lessonsResponse = await lessonAPI.getByTutorial(response.data._id);
-          setLessons(lessonsResponse.data);
-        }
-        
-        // Check if user has bookmarked this tutorial
-        if (isAuthenticated && response.data._id) {
-          try {
-            const bookmarksResponse = await userAPI.getBookmarks();
-            const bookmarks = bookmarksResponse.data;
-            if (bookmarks) {
-              const isBookmarked = bookmarks.some(bookmark => 
-                bookmark._id === response.data._id || bookmark === response.data._id
-              );
-              setIsBookmarked(isBookmarked);
-            }
-          } catch (err) {
-            console.error('Error checking bookmarks:', err);
-          }
-          
-          // Fetch user progress
-          try {
-            const progressResponse = await userAPI.getProgress();
-            const progressItems = progressResponse.data;
-            if (progressItems) {
-              const tutorialProgress = progressItems.find(item => 
-                item.tutorial === response.data._id || 
-                (item.tutorial && item.tutorial._id === response.data._id)
-              );
-              if (tutorialProgress) {
-                setUserProgress(tutorialProgress.completion);
-              }
-            }
-          } catch (err) {
-            console.error('Error fetching progress:', err);
-          }
-        }
-      } catch (err) {
-        console.error('Error fetching tutorial:', err);
-        setError('Failed to load tutorial content. Please try again.');
-      } finally {
-        setIsLoading(false);
       }
-    };
-    
-    fetchTutorial();
-  }, [tutorialSlug, technology, domain, isAuthenticated]);
+
+      // Strategy 2: Find tutorial by technology
+      if (!tutorialData && technology) {
+        try {
+          // Get technology first
+          const technologyResponse = await technologyAPI.getById(technology);
+          const technologyData = technologyResponse.data;
+          
+          // Get tutorials for this technology
+          const tutorialsResponse = await tutorialAPI.getAll({ 
+            technology: technologyData._id,
+            limit: 1 
+          });
+          const tutorials = tutorialsResponse.data.tutorials || tutorialsResponse.data;
+          
+          if (tutorials && tutorials.length > 0) {
+            tutorialData = tutorials[0];
+          }
+        } catch (err) {
+          console.log('Technology not found, trying domain...');
+        }
+      }
+
+      // Strategy 3: Find tutorial by domain
+      if (!tutorialData && domain) {
+        try {
+          // Get domain first
+          const domainResponse = await domainAPI.getById(domain);
+          const domainData = domainResponse.data;
+          
+          // Get tutorials for this domain
+          const tutorialsResponse = await tutorialAPI.getAll({ 
+            domain: domainData._id,
+            limit: 1 
+          });
+          const tutorials = tutorialsResponse.data.tutorials || tutorialsResponse.data;
+          
+          if (tutorials && tutorials.length > 0) {
+            tutorialData = tutorials[0];
+          }
+        } catch (err) {
+          console.log('Domain not found');
+        }
+      }
+
+      if (!tutorialData) {
+        throw new Error('Tutorial not found');
+      }
+
+      // Fetch lessons for this tutorial
+      try {
+        const lessonsResponse = await lessonAPI.getByTutorial(tutorialData._id);
+        lessonsData = lessonsResponse.data || [];
+        // Sort lessons by order
+        lessonsData.sort((a, b) => (a.order || 0) - (b.order || 0));
+      } catch (lessonErr) {
+        console.warn('Could not fetch lessons:', lessonErr);
+        lessonsData = [];
+      }
+
+      // Fetch related tutorials
+      try {
+        const relatedParams = {};
+        if (tutorialData.technology) {
+          relatedParams.technology = tutorialData.technology._id || tutorialData.technology;
+        } else if (tutorialData.domain) {
+          relatedParams.domain = tutorialData.domain._id || tutorialData.domain;
+        }
+        
+        const relatedResponse = await tutorialAPI.getAll({
+          ...relatedParams,
+          limit: 4
+        });
+        const related = relatedResponse.data.tutorials || relatedResponse.data;
+        // Filter out current tutorial
+        const filteredRelated = related.filter(t => t._id !== tutorialData._id);
+        setRelatedTutorials(filteredRelated.slice(0, 3));
+      } catch (relatedErr) {
+        console.warn('Could not fetch related tutorials:', relatedErr);
+      }
+
+      setTutorial(tutorialData);
+      setLessons(lessonsData);
+      
+    } catch (err) {
+      console.error('Error fetching tutorial:', err);
+      setError('Failed to load tutorial content. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchUserData = async () => {
+    try {
+      // Check if user has bookmarked this tutorial
+      const bookmarksResponse = await userAPI.getBookmarks();
+      const bookmarks = bookmarksResponse.data || [];
+      const isBookmarked = bookmarks.some(bookmark => 
+        bookmark._id === tutorial._id || bookmark === tutorial._id
+      );
+      setIsBookmarked(isBookmarked);
+
+      // Fetch user progress
+      const progressResponse = await userAPI.getProgress();
+      const progressItems = progressResponse.data || [];
+      const tutorialProgress = progressItems.find(item => 
+        item.tutorial === tutorial._id || 
+        (item.tutorial && item.tutorial._id === tutorial._id)
+      );
+      if (tutorialProgress) {
+        setUserProgress(tutorialProgress.completion || 0);
+      }
+    } catch (err) {
+      console.warn('Could not fetch user data:', err);
+    }
+  };
   
   // Toggle bookmark
   const toggleBookmark = async () => {
@@ -138,92 +212,78 @@ const DynamicTutorial = () => {
         .catch((error) => console.log('Error copying link', error));
     }
   };
-  
-  // Format tutorial data for TutorialContent component
-  const formatTutorialContent = () => {
-    if (!tutorial) return null;
-    
-    // Transform tutorial/lessons data into the format expected by TutorialContent
-    const formattedContent = {
-      title: tutorial.title,
-      introduction: tutorial.description,
-      sections: lessons.map(lesson => ({
-        title: lesson.title,
-        text: lesson.content?.find(block => block.type === 'text')?.data?.text || '',
-        code: lesson.content?.find(block => block.type === 'code')?.data?.code || '',
-        language: lesson.content?.find(block => block.type === 'code')?.data?.language || 'html',
-        videoUrl: lesson.content?.find(block => block.type === 'video')?.data?.url || '',
-        note: lesson.content?.find(block => block.type === 'text' && block.data?.isNote)?.data?.text || '',
-      }))
-    };
-    
-    return formattedContent;
-  };
-  
-  // Generate additional resources
+
+  // Generate resources based on tutorial data
   const generateResources = () => {
     if (!tutorial) return [];
     
-    // In a real app, these would come from the backend
-    // For now, generating some based on the tutorial/technology
-    const resources = [
-      {
-        title: `Official ${tutorial.technology?.name || 'Documentation'}`,
-        url: technology === 'html' ? 'https://developer.mozilla.org/en-US/docs/Web/HTML' :
-             technology === 'css' ? 'https://developer.mozilla.org/en-US/docs/Web/CSS' :
-             technology === 'javascript' ? 'https://developer.mozilla.org/en-US/docs/Web/JavaScript' :
-             technology === 'react' ? 'https://reactjs.org/docs/getting-started.html' :
-             'https://developer.mozilla.org/en-US/docs',
-        description: `Official documentation for ${tutorial.technology?.name || technology || 'web development'}`,
+    const resources = [];
+    const techName = tutorial.technology?.name?.toLowerCase() || '';
+    
+    // Add official documentation links
+    if (techName.includes('html')) {
+      resources.push({
+        title: 'MDN HTML Documentation',
+        url: 'https://developer.mozilla.org/en-US/docs/Web/HTML',
+        description: 'Official HTML documentation by Mozilla',
         type: 'documentation'
-      },
-      {
-        title: `${tutorial.title} - Additional Practice`,
-        url: 'https://www.freecodecamp.org/',
-        description: 'Practice exercises related to this tutorial',
-        type: 'tutorial'
-      }
-    ];
+      });
+    }
+    
+    if (techName.includes('css')) {
+      resources.push({
+        title: 'MDN CSS Documentation',
+        url: 'https://developer.mozilla.org/en-US/docs/Web/CSS',
+        description: 'Official CSS documentation by Mozilla',
+        type: 'documentation'
+      });
+    }
+    
+    if (techName.includes('javascript')) {
+      resources.push({
+        title: 'MDN JavaScript Documentation',
+        url: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript',
+        description: 'Official JavaScript documentation by Mozilla',
+        type: 'documentation'
+      });
+    }
+    
+    if (techName.includes('react')) {
+      resources.push({
+        title: 'React Official Documentation',
+        url: 'https://reactjs.org/docs/getting-started.html',
+        description: 'Official React documentation',
+        type: 'documentation'
+      });
+    }
+
+    // Add practice resources
+    resources.push({
+      title: 'Practice Exercises',
+      url: 'https://www.freecodecamp.org/',
+      description: 'Additional practice exercises related to this tutorial',
+      type: 'tutorial'
+    });
     
     return resources;
   };
-  
-  // Get related tutorials
-  const getRelatedTutorials = () => {
-    // In a real app, would fetch from backend based on current tutorial
-    // For demo purposes, use hardcoded related tutorials
-    return [
-      {
-        title: 'HTML Fundamentals',
-        description: 'Learn the structure of web pages with HTML',
-        path: '/tutorials/html',
-        technology: 'html'
-      },
-      {
-        title: 'CSS Fundamentals',
-        description: 'Style your web pages with CSS',
-        path: '/tutorials/css',
-        technology: 'css'
-      },
-      {
-        title: 'JavaScript Essentials',
-        description: 'Add interactivity with JavaScript',
-        path: '/tutorials/javascript',
-        technology: 'javascript'
-      },
-      {
-        title: 'React Fundamentals',
-        description: 'Build user interfaces with React',
-        path: '/tutorials/react',
-        technology: 'react'
-      }
-    ].filter(related => related.technology !== technology);
+
+  // Format tutorial content for TutorialContent component
+  const formatTutorialContent = () => {
+    if (!tutorial) return null;
+    
+    return {
+      title: tutorial.title,
+      introduction: tutorial.description,
+      // We'll pass lessons separately to TutorialContent
+    };
   };
   
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center min-h-[50vh]">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-emerald-600"></div>
+      <div className="flex flex-col items-center justify-center min-h-[50vh]">
+        <Loader size={40} className="animate-spin text-emerald-600 mb-4" />
+        <p className="text-gray-500">Loading tutorial...</p>
       </div>
     );
   }
@@ -313,25 +373,39 @@ const DynamicTutorial = () => {
           {tutorial.domain && (
             <span className="flex items-center">
               <BookOpen size={16} className="mr-1" />
-              {tutorial.domain.name || 'Web Development'}
+              {tutorial.domain.name || tutorial.domain}
             </span>
           )}
           {tutorial.technology && (
             <span className="flex items-center">
               <code className="bg-gray-100 px-2 py-0.5 rounded text-gray-800">
-                {tutorial.technology.name || technology}
+                {tutorial.technology.name || tutorial.technology}
               </code>
             </span>
           )}
           <span className="flex items-center">
             <Clock size={16} className="mr-1" />
-            {tutorial.estimatedTime || '30'} min
+            {tutorial.estimatedTime || 30} min
           </span>
           <span className="flex items-center">
             <BarChart size={16} className="mr-1" />
             {tutorial.difficulty?.charAt(0).toUpperCase() + tutorial.difficulty?.slice(1) || 'Beginner'}
           </span>
         </div>
+        
+        {/* Tags */}
+        {tutorial.tags && tutorial.tags.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-3">
+            {tutorial.tags.map((tag, index) => (
+              <span 
+                key={index}
+                className="inline-block px-2 py-1 bg-gray-100 text-gray-600 text-sm rounded-md"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
       
       {/* Progress Bar (for logged-in users) */}
@@ -343,7 +417,7 @@ const DynamicTutorial = () => {
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2">
             <div 
-              className="bg-emerald-600 h-2 rounded-full" 
+              className="bg-emerald-600 h-2 rounded-full transition-all duration-300" 
               style={{ width: `${userProgress}%` }}
             ></div>
           </div>
@@ -356,7 +430,12 @@ const DynamicTutorial = () => {
       )}
       
       {/* Main Tutorial Content */}
-      {tutorialContent && <TutorialContent content={tutorialContent} />}
+      {tutorialContent && (
+        <TutorialContent 
+          content={tutorialContent} 
+          lessons={lessons}
+        />
+      )}
       
       {/* Lesson Links */}
       {lessons.length > 0 && (
@@ -367,18 +446,27 @@ const DynamicTutorial = () => {
               <Link
                 key={lesson._id}
                 to={`/lessons/${lesson._id}`}
-                className="block p-4 border rounded-md hover:bg-gray-50"
+                className="block p-4 border rounded-md hover:bg-gray-50 transition-colors"
               >
                 <div className="flex items-center">
                   <div className="w-8 h-8 bg-emerald-100 text-emerald-800 rounded-full flex items-center justify-center font-medium mr-3">
                     {index + 1}
                   </div>
-                  <div>
+                  <div className="flex-1">
                     <h3 className="font-medium">{lesson.title}</h3>
-                    <p className="text-sm text-gray-500">
-                      {lesson.duration || 10} min
-                      {!lesson.isPublished && " • Draft"}
-                    </p>
+                    <div className="flex items-center text-sm text-gray-500 mt-1">
+                      <Clock size={14} className="mr-1" />
+                      <span>{lesson.duration || 10} min</span>
+                      {!lesson.isPublished && (
+                        <>
+                          <span className="mx-2">•</span>
+                          <span className="text-orange-500">Draft</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-emerald-600">
+                    <Play size={18} />
                   </div>
                 </div>
               </Link>
@@ -391,21 +479,41 @@ const DynamicTutorial = () => {
       <ResourceList resources={generateResources()} />
       
       {/* Related Tutorials */}
-      <div className="mt-12 border-t pt-8">
-        <h3 className="text-xl font-bold mb-4">Related Tutorials</h3>
-        <div className="grid md:grid-cols-2 gap-4">
-          {getRelatedTutorials().slice(0, 2).map((related, index) => (
-            <Link 
-              key={index} 
-              to={related.path} 
-              className="p-4 border rounded-md hover:bg-gray-50"
-            >
-              <h4 className="font-medium">{related.title}</h4>
-              <p className="text-sm text-gray-600">{related.description}</p>
-            </Link>
-          ))}
+      {relatedTutorials.length > 0 && (
+        <div className="mt-12 border-t pt-8">
+          <h3 className="text-xl font-bold mb-4">Related Tutorials</h3>
+          <div className="grid md:grid-cols-2 gap-4">
+            {relatedTutorials.map((related) => (
+              <Link 
+                key={related._id} 
+                to={`/tutorials/${related.slug || related._id}`} 
+                className="p-4 border rounded-md hover:bg-gray-50 transition-colors"
+              >
+                <div className="flex items-start">
+                  <div className="w-10 h-10 bg-gray-100 rounded-md flex items-center justify-center mr-3 flex-shrink-0">
+                    <BookOpen size={18} className="text-gray-600" />
+                  </div>
+                  <div>
+                    <h4 className="font-medium">{related.title}</h4>
+                    <p className="text-sm text-gray-600 mt-1">{related.description}</p>
+                    <div className="flex items-center mt-2 text-xs text-gray-500">
+                      {related.difficulty && (
+                        <span className={`px-2 py-0.5 rounded-full ${
+                          related.difficulty === 'beginner' ? 'bg-green-100 text-green-800' :
+                          related.difficulty === 'intermediate' ? 'bg-blue-100 text-blue-800' :
+                          'bg-purple-100 text-purple-800'
+                        }`}>
+                          {related.difficulty}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

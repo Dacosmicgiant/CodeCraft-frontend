@@ -1,4 +1,3 @@
-// src/pages/Tutorial.jsx
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { 
@@ -20,10 +19,11 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
-import { tutorialAPI, domainAPI, technologyAPI } from '../services/api';
+import { tutorialAPI, domainAPI, technologyAPI, userAPI } from '../services/api';
+import TutorialCategories from '../components/tutorial/TutorialCategories';
 
 const TutorialPage = () => {
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -31,22 +31,30 @@ const TutorialPage = () => {
   const [tutorials, setTutorials] = useState([]);
   const [domains, setDomains] = useState([]);
   const [technologies, setTechnologies] = useState([]);
+  const [userBookmarks, setUserBookmarks] = useState([]);
+  const [userProgress, setUserProgress] = useState([]);
   
   // Filter and search state
-  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [selectedDomain, setSelectedDomain] = useState('all');
   const [selectedTechnology, setSelectedTechnology] = useState('all');
   const [selectedDifficulty, setSelectedDifficulty] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState('-createdAt'); // Default sort by newest
   
   // UI state
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState(null);
-  const [isMobile, setIsMobile] = useState(false);
   
   // Loading and error state
   const [isLoading, setIsLoading] = useState(true);
   const [isFiltering, setIsFiltering] = useState(false);
   const [error, setError] = useState(null);
+  
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalTutorials, setTotalTutorials] = useState(0);
+  const tutorialsPerPage = 12;
   
   // Parse query params for initial filter state
   useEffect(() => {
@@ -55,90 +63,104 @@ const TutorialPage = () => {
     const technologyParam = params.get('technology');
     const difficultyParam = params.get('difficulty');
     const searchParam = params.get('q');
+    const pageParam = params.get('page');
+    const sortParam = params.get('sort');
     
-    if (domainParam) setSelectedCategory(domainParam);
+    if (domainParam) setSelectedDomain(domainParam);
     if (technologyParam) setSelectedTechnology(technologyParam);
     if (difficultyParam) setSelectedDifficulty(difficultyParam);
     if (searchParam) setSearchQuery(searchParam);
+    if (pageParam) setCurrentPage(parseInt(pageParam) || 1);
+    if (sortParam) setSortBy(sortParam);
   }, [location.search]);
   
-  // Check if the device is mobile
+  // Fetch initial data
   useEffect(() => {
-    const checkIfMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    
-    // Initial check
-    checkIfMobile();
-    
-    // Add event listener for window resize
-    window.addEventListener('resize', checkIfMobile);
-    
-    // Clean up
-    return () => window.removeEventListener('resize', checkIfMobile);
+    fetchInitialData();
   }, []);
-  
-  // Fetch domains, technologies, and tutorials
+
+  // Fetch user-specific data when authenticated
   useEffect(() => {
-    fetchDomains();
-    fetchTechnologies();
-    fetchTutorials();
-  }, []);
+    if (isAuthenticated) {
+      fetchUserData();
+    }
+  }, [isAuthenticated]);
   
   // Re-fetch tutorials when filters change
   useEffect(() => {
-    fetchTutorials({
-      domain: selectedCategory !== 'all' ? selectedCategory : undefined,
-      technology: selectedTechnology !== 'all' ? selectedTechnology : undefined,
-      difficulty: selectedDifficulty !== 'all' ? selectedDifficulty : undefined,
-      search: searchQuery || undefined
-    });
-    
-    // Update URL parameters
-    const params = new URLSearchParams();
-    if (selectedCategory !== 'all') params.set('domain', selectedCategory);
-    if (selectedTechnology !== 'all') params.set('technology', selectedTechnology);
-    if (selectedDifficulty !== 'all') params.set('difficulty', selectedDifficulty);
-    if (searchQuery) params.set('q', searchQuery);
-    
-    const newUrl = params.toString() 
-      ? `${location.pathname}?${params.toString()}`
-      : location.pathname;
-    
-    window.history.replaceState({}, '', newUrl);
-    
-  }, [selectedCategory, selectedTechnology, selectedDifficulty, searchQuery]);
+    fetchTutorials();
+    updateURL();
+  }, [selectedDomain, selectedTechnology, selectedDifficulty, searchQuery, sortBy, currentPage]);
   
-  const fetchDomains = async () => {
+  const fetchInitialData = async () => {
     try {
-      const response = await domainAPI.getAll();
-      setDomains(response.data);
-    } catch (err) {
-      console.error('Error fetching domains:', err);
-      // Non-blocking error - continue with other data
-    }
-  };
-  
-  const fetchTechnologies = async () => {
-    try {
-      const response = await technologyAPI.getAll();
-      setTechnologies(response.data);
-    } catch (err) {
-      console.error('Error fetching technologies:', err);
-      // Non-blocking error - continue with other data
-    }
-  };
-  
-  const fetchTutorials = async (filters = {}) => {
-    try {
-      setIsFiltering(true);
-      if (!tutorials.length) setIsLoading(true);
+      setIsLoading(true);
       setError(null);
       
-      const response = await tutorialAPI.getAll(filters);
-      const tutorialsData = response.data.tutorials || response.data;
+      const [domainsRes, technologiesRes] = await Promise.all([
+        domainAPI.getAll(),
+        technologyAPI.getAll()
+      ]);
+
+      setDomains(domainsRes.data);
+      setTechnologies(technologiesRes.data);
       
-      setTutorials(tutorialsData);
+    } catch (err) {
+      console.error('Error fetching initial data:', err);
+      setError('Failed to load filter options. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchUserData = async () => {
+    try {
+      const [bookmarksRes, progressRes] = await Promise.all([
+        userAPI.getBookmarks(),
+        userAPI.getProgress()
+      ]);
+
+      setUserBookmarks(bookmarksRes.data || []);
+      setUserProgress(progressRes.data || []);
+    } catch (err) {
+      console.warn('Could not fetch user data:', err);
+    }
+  };
+  
+  const fetchTutorials = async () => {
+    try {
+      setIsFiltering(true);
+      if (currentPage === 1) setIsLoading(true);
+      setError(null);
+      
+      const filters = {
+        page: currentPage,
+        limit: tutorialsPerPage,
+        sort: sortBy
+      };
+      
+      if (selectedDomain !== 'all') filters.domain = selectedDomain;
+      if (selectedTechnology !== 'all') filters.technology = selectedTechnology;
+      if (selectedDifficulty !== 'all') filters.difficulty = selectedDifficulty;
+      if (searchQuery) filters.search = searchQuery;
+      
+      const response = await tutorialAPI.getAll(filters);
+      const data = response.data;
+      
+      // Handle both paginated and non-paginated responses
+      if (data.tutorials && data.pagination) {
+        // Paginated response
+        setTutorials(data.tutorials);
+        setTotalPages(data.pagination.pages);
+        setTotalTutorials(data.pagination.total);
+      } else {
+        // Non-paginated response
+        const tutorialsArray = data.tutorials || data;
+        setTutorials(tutorialsArray);
+        setTotalTutorials(tutorialsArray.length);
+        setTotalPages(Math.ceil(tutorialsArray.length / tutorialsPerPage));
+      }
+      
     } catch (err) {
       console.error('Error fetching tutorials:', err);
       setError('Failed to load tutorials. Please try again.');
@@ -147,14 +169,23 @@ const TutorialPage = () => {
       setIsFiltering(false);
     }
   };
-  
-  // Filter tutorials based on search if server-side filtering is not available
-  const getFilteredTutorials = () => {
-    // If we're already filtering server-side, just return the current tutorials
-    return tutorials;
+
+  const updateURL = () => {
+    const params = new URLSearchParams();
+    
+    if (selectedDomain !== 'all') params.set('domain', selectedDomain);
+    if (selectedTechnology !== 'all') params.set('technology', selectedTechnology);
+    if (selectedDifficulty !== 'all') params.set('difficulty', selectedDifficulty);
+    if (searchQuery) params.set('q', searchQuery);
+    if (currentPage > 1) params.set('page', currentPage.toString());
+    if (sortBy !== '-createdAt') params.set('sort', sortBy);
+    
+    const newUrl = params.toString() 
+      ? `${location.pathname}?${params.toString()}`
+      : location.pathname;
+    
+    window.history.replaceState({}, '', newUrl);
   };
-  
-  const filteredTutorials = getFilteredTutorials();
   
   // Toggle filter menu
   const toggleFilterMenu = (filterName) => {
@@ -169,40 +200,63 @@ const TutorialPage = () => {
   
   // Clear all filters
   const clearFilters = () => {
-    setSelectedCategory('all');
+    setSelectedDomain('all');
     setSelectedTechnology('all');
     setSelectedDifficulty('all');
     setSearchQuery('');
+    setCurrentPage(1);
+    setSortBy('-createdAt');
   };
-  
-  // Generate tutorial icon based on technology name or provided icon
-  const getTutorialIcon = (tutorial) => {
-    const techName = tutorial.technology?.name || '';
+
+  // Handle pagination
+  const handlePageChange = (newPage) => {
+    setCurrentPage(newPage);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Check if tutorial is bookmarked
+  const isTutorialBookmarked = (tutorialId) => {
+    return userBookmarks.some(bookmark => 
+      bookmark._id === tutorialId || bookmark === tutorialId
+    );
+  };
+
+  // Get user progress for tutorial
+  const getTutorialProgress = (tutorialId) => {
+    const progress = userProgress.find(p => 
+      p.tutorial === tutorialId || 
+      (p.tutorial && p.tutorial._id === tutorialId)
+    );
+    return progress ? progress.completion : 0;
+  };
+
+  // Toggle bookmark
+  const toggleBookmark = async (e, tutorialId) => {
+    e.preventDefault();
+    e.stopPropagation();
     
-    if (techName.toLowerCase().includes('html')) {
-      return <span className="text-lg font-bold text-white">HTML</span>;
-    } else if (techName.toLowerCase().includes('css')) {
-      return <span className="text-lg font-bold text-white">CSS</span>;
-    } else if (techName.toLowerCase().includes('javascript')) {
-      return <span className="text-lg font-bold text-white">JS</span>;
-    } else if (techName.toLowerCase().includes('react')) {
-      return <span className="text-lg font-bold text-white">React</span>;
-    } else {
-      return <BookOpen size={24} className="text-white" />;
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
     }
-  };
-  
-  // Generate difficulty badge
-  const getDifficultyBadge = (level) => {
-    switch (level) {
-      case 'beginner':
-        return <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">Beginner</span>;
-      case 'intermediate':
-        return <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">Intermediate</span>;
-      case 'advanced':
-        return <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs font-medium rounded-full">Advanced</span>;
-      default:
-        return null;
+    
+    try {
+      const isBookmarked = isTutorialBookmarked(tutorialId);
+      
+      if (isBookmarked) {
+        await userAPI.removeBookmark(tutorialId);
+        setUserBookmarks(prev => prev.filter(b => 
+          b._id !== tutorialId && b !== tutorialId
+        ));
+      } else {
+        await userAPI.addBookmark(tutorialId);
+        // For simplicity, refetch bookmarks
+        const bookmarksRes = await userAPI.getBookmarks();
+        setUserBookmarks(bookmarksRes.data || []);
+      }
+    } catch (err) {
+      console.error('Error toggling bookmark:', err);
+      alert('Failed to update bookmark. Please try again.');
     }
   };
   
@@ -224,13 +278,19 @@ const TutorialPage = () => {
             placeholder="Search for tutorials, topics, or keywords..."
             className="w-full py-3 pl-10 pr-4 text-gray-700 bg-white border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setCurrentPage(1); // Reset to first page when searching
+            }}
             disabled={isLoading}
           />
           <Search className="absolute left-3 top-3.5 text-gray-400" size={20} />
           {searchQuery && (
             <button
-              onClick={() => setSearchQuery('')}
+              onClick={() => {
+                setSearchQuery('');
+                setCurrentPage(1);
+              }}
               className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600"
             >
               <X size={18} />
@@ -239,24 +299,24 @@ const TutorialPage = () => {
         </div>
       </div>
       
-      {/* Category/Filter Bar */}
-      <div className="mb-6">
+      {/* Filter and Sort Bar */}
+      <div className="mb-6 flex flex-wrap gap-4 items-center justify-between">
         <div className="flex flex-wrap gap-2">
-          {/* Category Pills */}
+          {/* Domain Filter */}
           <div className="relative">
             <button
               onClick={() => toggleFilterMenu('domain')}
               className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-medium ${
-                selectedCategory !== 'all' 
+                selectedDomain !== 'all' 
                   ? 'bg-emerald-100 text-emerald-700 border-2 border-emerald-500' 
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200'
               }`}
               disabled={isLoading || domains.length === 0}
             >
               <span>
-                {selectedCategory === 'all' 
+                {selectedDomain === 'all' 
                   ? 'All Domains' 
-                  : domains.find(d => d._id === selectedCategory)?.name || 'Domain'}
+                  : domains.find(d => d._id === selectedDomain)?.name || 'Domain'}
               </span>
               <ChevronDown size={16} className={`transition-transform ${activeFilter === 'domain' && isFilterOpen ? 'rotate-180' : ''}`} />
             </button>
@@ -265,9 +325,10 @@ const TutorialPage = () => {
               <div className="absolute z-20 mt-1 w-48 bg-white border rounded-md shadow-lg">
                 <div className="p-2 max-h-60 overflow-y-auto">
                   <div 
-                    className={`px-3 py-2 rounded-md cursor-pointer ${selectedCategory === 'all' ? 'bg-emerald-100 text-emerald-700' : 'hover:bg-gray-100'}`}
+                    className={`px-3 py-2 rounded-md cursor-pointer ${selectedDomain === 'all' ? 'bg-emerald-100 text-emerald-700' : 'hover:bg-gray-100'}`}
                     onClick={() => {
-                      setSelectedCategory('all');
+                      setSelectedDomain('all');
+                      setCurrentPage(1);
                       setIsFilterOpen(false);
                     }}
                   >
@@ -276,9 +337,10 @@ const TutorialPage = () => {
                   {domains.map(domain => (
                     <div 
                       key={domain._id}
-                      className={`px-3 py-2 rounded-md cursor-pointer ${selectedCategory === domain._id ? 'bg-emerald-100 text-emerald-700' : 'hover:bg-gray-100'}`}
+                      className={`px-3 py-2 rounded-md cursor-pointer ${selectedDomain === domain._id ? 'bg-emerald-100 text-emerald-700' : 'hover:bg-gray-100'}`}
                       onClick={() => {
-                        setSelectedCategory(domain._id);
+                        setSelectedDomain(domain._id);
+                        setCurrentPage(1);
                         setIsFilterOpen(false);
                       }}
                     >
@@ -290,7 +352,7 @@ const TutorialPage = () => {
             )}
           </div>
           
-          {/* Technology Pills */}
+          {/* Technology Filter */}
           <div className="relative">
             <button
               onClick={() => toggleFilterMenu('technology')}
@@ -316,6 +378,7 @@ const TutorialPage = () => {
                     className={`px-3 py-2 rounded-md cursor-pointer ${selectedTechnology === 'all' ? 'bg-emerald-100 text-emerald-700' : 'hover:bg-gray-100'}`}
                     onClick={() => {
                       setSelectedTechnology('all');
+                      setCurrentPage(1);
                       setIsFilterOpen(false);
                     }}
                   >
@@ -327,6 +390,7 @@ const TutorialPage = () => {
                       className={`px-3 py-2 rounded-md cursor-pointer ${selectedTechnology === tech._id ? 'bg-emerald-100 text-emerald-700' : 'hover:bg-gray-100'}`}
                       onClick={() => {
                         setSelectedTechnology(tech._id);
+                        setCurrentPage(1);
                         setIsFilterOpen(false);
                       }}
                     >
@@ -338,7 +402,7 @@ const TutorialPage = () => {
             )}
           </div>
           
-          {/* Difficulty Pills */}
+          {/* Difficulty Filter */}
           <div className="relative">
             <button
               onClick={() => toggleFilterMenu('difficulty')}
@@ -360,49 +424,26 @@ const TutorialPage = () => {
             {activeFilter === 'difficulty' && isFilterOpen && (
               <div className="absolute z-20 mt-1 w-48 bg-white border rounded-md shadow-lg">
                 <div className="p-2">
-                  <div 
-                    className={`px-3 py-2 rounded-md cursor-pointer ${selectedDifficulty === 'all' ? 'bg-emerald-100 text-emerald-700' : 'hover:bg-gray-100'}`}
-                    onClick={() => {
-                      setSelectedDifficulty('all');
-                      setIsFilterOpen(false);
-                    }}
-                  >
-                    All Levels
-                  </div>
-                  <div 
-                    className={`px-3 py-2 rounded-md cursor-pointer ${selectedDifficulty === 'beginner' ? 'bg-emerald-100 text-emerald-700' : 'hover:bg-gray-100'}`}
-                    onClick={() => {
-                      setSelectedDifficulty('beginner');
-                      setIsFilterOpen(false);
-                    }}
-                  >
-                    Beginner
-                  </div>
-                  <div 
-                    className={`px-3 py-2 rounded-md cursor-pointer ${selectedDifficulty === 'intermediate' ? 'bg-emerald-100 text-emerald-700' : 'hover:bg-gray-100'}`}
-                    onClick={() => {
-                      setSelectedDifficulty('intermediate');
-                      setIsFilterOpen(false);
-                    }}
-                  >
-                    Intermediate
-                  </div>
-                  <div 
-                    className={`px-3 py-2 rounded-md cursor-pointer ${selectedDifficulty === 'advanced' ? 'bg-emerald-100 text-emerald-700' : 'hover:bg-gray-100'}`}
-                    onClick={() => {
-                      setSelectedDifficulty('advanced');
-                      setIsFilterOpen(false);
-                    }}
-                  >
-                    Advanced
-                  </div>
+                  {['all', 'beginner', 'intermediate', 'advanced'].map(level => (
+                    <div 
+                      key={level}
+                      className={`px-3 py-2 rounded-md cursor-pointer ${selectedDifficulty === level ? 'bg-emerald-100 text-emerald-700' : 'hover:bg-gray-100'}`}
+                      onClick={() => {
+                        setSelectedDifficulty(level);
+                        setCurrentPage(1);
+                        setIsFilterOpen(false);
+                      }}
+                    >
+                      {level === 'all' ? 'All Levels' : level.charAt(0).toUpperCase() + level.slice(1)}
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
           </div>
           
-          {/* Clear Filters Button - only show if filters are active */}
-          {(selectedCategory !== 'all' || selectedTechnology !== 'all' || selectedDifficulty !== 'all' || searchQuery) && (
+          {/* Clear Filters Button */}
+          {(selectedDomain !== 'all' || selectedTechnology !== 'all' || selectedDifficulty !== 'all' || searchQuery) && (
             <button
               onClick={clearFilters}
               className="flex items-center gap-1 px-3 py-1.5 bg-red-50 text-red-600 rounded-full text-sm font-medium hover:bg-red-100"
@@ -412,6 +453,25 @@ const TutorialPage = () => {
               Clear Filters
             </button>
           )}
+        </div>
+
+        {/* Sort Dropdown */}
+        <div className="relative">
+          <select
+            value={sortBy}
+            onChange={(e) => {
+              setSortBy(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            disabled={isLoading}
+          >
+            <option value="-createdAt">Newest First</option>
+            <option value="createdAt">Oldest First</option>
+            <option value="title">Title A-Z</option>
+            <option value="-title">Title Z-A</option>
+            <option value="difficulty">Difficulty: Easy to Hard</option>
+          </select>
         </div>
       </div>
       
@@ -423,7 +483,7 @@ const TutorialPage = () => {
         </div>
       )}
       
-      {/* Results Count */}
+      {/* Results Count and Status */}
       <div className="mb-4 flex justify-between items-center">
         <p className="text-sm text-gray-600">
           {isFiltering ? (
@@ -433,12 +493,18 @@ const TutorialPage = () => {
             </span>
           ) : (
             <>
-              {filteredTutorials.length} {filteredTutorials.length === 1 ? 'tutorial' : 'tutorials'} found
+              {totalTutorials} {totalTutorials === 1 ? 'tutorial' : 'tutorials'} found
               {searchQuery && <span> for "{searchQuery}"</span>}
+              {totalPages > 1 && (
+                <span> (Page {currentPage} of {totalPages})</span>
+              )}
             </>
           )}
         </p>
       </div>
+
+      {/* Featured Categories Component */}
+      <TutorialCategories />
       
       {/* Loading State */}
       {isLoading && (
@@ -449,17 +515,62 @@ const TutorialPage = () => {
       )}
       
       {/* Tutorial Cards Grid */}
-      {!isLoading && filteredTutorials.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredTutorials.map(tutorial => (
-            <TutorialCard 
-              key={tutorial._id} 
-              tutorial={tutorial} 
-              onClick={() => navigate(`/tutorials/${tutorial.slug || tutorial._id}`)}
-              user={user}
-            />
-          ))}
-        </div>
+      {!isLoading && tutorials.length > 0 ? (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            {tutorials.map(tutorial => (
+              <TutorialCard 
+                key={tutorial._id} 
+                tutorial={tutorial} 
+                user={user}
+                isBookmarked={isTutorialBookmarked(tutorial._id)}
+                progress={getTutorialProgress(tutorial._id)}
+                onBookmarkToggle={(e) => toggleBookmark(e, tutorial._id)}
+              />
+            ))}
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex justify-center items-center space-x-2">
+              <button
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1 || isFiltering}
+                className="px-3 py-2 border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+              >
+                Previous
+              </button>
+              
+              {[...Array(Math.min(totalPages, 5))].map((_, index) => {
+                const pageNumber = currentPage <= 3 ? index + 1 : currentPage - 2 + index;
+                if (pageNumber > totalPages) return null;
+                
+                return (
+                  <button
+                    key={pageNumber}
+                    onClick={() => handlePageChange(pageNumber)}
+                    disabled={isFiltering}
+                    className={`px-3 py-2 border border-gray-300 rounded-md ${
+                      currentPage === pageNumber 
+                        ? 'bg-emerald-600 text-white border-emerald-600' 
+                        : 'hover:bg-gray-50'
+                    }`}
+                  >
+                    {pageNumber}
+                  </button>
+                );
+              })}
+              
+              <button
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages || isFiltering}
+                className="px-3 py-2 border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+              >
+                Next
+              </button>
+            </div>
+          )}
+        </>
       ) : !isLoading && (
         <div className="text-center py-12 bg-gray-50 rounded-lg border">
           <div className="mx-auto w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mb-4">
@@ -482,83 +593,59 @@ const TutorialPage = () => {
   );
 };
 
-// Feature Item Component
-const Feature = ({ children }) => (
-  <div className="flex items-center gap-1 text-sm">
-    <Check size={16} className="text-purple-200" />
-    <span>{children}</span>
-  </div>
-);
+// Tutorial Card Component - Updated with backend data
+const TutorialCard = ({ tutorial, user, isBookmarked = false, progress = 0, onBookmarkToggle }) => {
+  const navigate = useNavigate();
 
-// Tutorial Card Component
-const TutorialCard = ({ tutorial, onClick, user }) => {
-  // Determine tutorial color based on technology
+  // Get tutorial color based on technology
   const getTutorialColor = (tutorial) => {
     const techName = tutorial.technology?.name?.toLowerCase() || '';
     
-    if (techName.includes('html')) {
-      return 'from-orange-500 to-red-500';
-    } else if (techName.includes('css')) {
-      return 'from-blue-500 to-cyan-500';
-    } else if (techName.includes('javascript')) {
-      return 'from-yellow-400 to-yellow-600';
-    } else if (techName.includes('react')) {
-      return 'from-cyan-500 to-blue-500';
-    } else {
-      return 'from-emerald-500 to-teal-600';
-    }
+    if (techName.includes('html')) return 'from-orange-500 to-red-500';
+    if (techName.includes('css')) return 'from-blue-500 to-cyan-500';
+    if (techName.includes('javascript')) return 'from-yellow-400 to-yellow-600';
+    if (techName.includes('react')) return 'from-cyan-500 to-blue-500';
+    if (techName.includes('node')) return 'from-green-500 to-green-600';
+    if (techName.includes('python')) return 'from-blue-600 to-purple-600';
+    return 'from-emerald-500 to-teal-600';
   };
-  
-  // Get user progress for this tutorial
-  const getUserProgress = () => {
-    // This would come from the user object or a separate API call
-    // For now, we'll return a random value for demonstration
-    return Math.random();
+
+  // Get technology icon
+  const getTechnologyIcon = (tutorial) => {
+    const techName = tutorial.technology?.name || '';
+    return (
+      <span className="text-lg font-bold text-white">
+        {techName.substring(0, 2).toUpperCase()}
+      </span>
+    );
   };
-  
-  // Determine if the tutorial has videos
-  const hasVideo = tutorial.lessons?.some(lesson => 
-    lesson.content?.some(block => block.type === 'video')
-  );
-  
-  // Calculate the tutorial's estimated time in minutes
-  const estimatedTimeMinutes = tutorial.estimatedTime || 30;
-  
-  // Format the estimated time as hours and minutes
+
+  // Format estimated time
   const formatEstimatedTime = (minutes) => {
-    if (minutes < 60) {
-      return `${minutes} min`;
-    }
-    
+    if (minutes < 60) return `${minutes} min`;
     const hours = Math.floor(minutes / 60);
     const remainingMinutes = minutes % 60;
-    
-    if (remainingMinutes === 0) {
-      return `${hours} ${hours === 1 ? 'hour' : 'hours'}`;
-    }
-    
+    if (remainingMinutes === 0) return `${hours}h`;
     return `${hours}h ${remainingMinutes}m`;
+  };
+
+  const handleCardClick = () => {
+    navigate(`/tutorials/${tutorial.slug || tutorial._id}`);
   };
   
   return (
     <div 
       className="flex flex-col rounded-lg border overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer bg-white"
-      onClick={onClick}
+      onClick={handleCardClick}
     >
       {/* Card Header with gradient background */}
-      <div className={`bg-gradient-to-r ${getTutorialColor(tutorial)} p-4 h-20`}>
+      <div className={`bg-gradient-to-r ${getTutorialColor(tutorial)} p-4 h-20 relative`}>
         <div className="flex justify-between items-center">
           <div className="w-12 h-12 rounded-full bg-white bg-opacity-20 backdrop-blur-sm flex items-center justify-center">
-            {tutorial.technology?.name ? (
-              <span className="text-lg font-bold text-white">
-                {tutorial.technology.name.substring(0, 2).toUpperCase()}
-              </span>
-            ) : (
-              <BookOpen size={20} className="text-white" />
-            )}
+            {getTechnologyIcon(tutorial)}
           </div>
           
-          <div>
+          <div className="flex flex-col items-end gap-1">
             {tutorial.difficulty && (
               <div className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                 tutorial.difficulty === 'beginner' ? 'bg-green-100 text-green-800' :
@@ -569,15 +656,22 @@ const TutorialCard = ({ tutorial, onClick, user }) => {
                 {tutorial.difficulty.charAt(0).toUpperCase() + tutorial.difficulty.slice(1)}
               </div>
             )}
-            
-            {hasVideo && (
-              <div className="mt-1.5 inline-flex items-center px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full">
-                <Video size={12} className="mr-1" />
-                Video
-              </div>
-            )}
           </div>
         </div>
+
+        {/* Bookmark button */}
+        {user && (
+          <button
+            onClick={onBookmarkToggle}
+            className={`absolute top-2 right-2 p-1.5 rounded-full transition-colors ${
+              isBookmarked 
+                ? 'text-yellow-400 bg-white bg-opacity-20' 
+                : 'text-white bg-black bg-opacity-20 hover:bg-opacity-30'
+            }`}
+          >
+            <Bookmark size={16} className={isBookmarked ? 'fill-yellow-400' : ''} />
+          </button>
+        )}
       </div>
       
       {/* Card Body */}
@@ -593,21 +687,21 @@ const TutorialCard = ({ tutorial, onClick, user }) => {
           </div>
           <div className="flex items-center">
             <Clock size={14} className="mr-1" />
-            <span>{formatEstimatedTime(estimatedTimeMinutes)}</span>
+            <span>{formatEstimatedTime(tutorial.estimatedTime || 30)}</span>
           </div>
         </div>
         
         {/* Progress bar (for logged in users) */}
-        {user && (
+        {user && progress > 0 && (
           <div className="mb-3">
             <div className="flex justify-between text-xs mb-1">
               <span className="font-medium text-gray-700">Your progress</span>
-              <span className="text-emerald-600">{Math.round(getUserProgress() * 100)}%</span>
+              <span className="text-emerald-600">{Math.round(progress)}%</span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-1.5">
               <div 
                 className="bg-emerald-600 h-1.5 rounded-full"
-                style={{ width: `${getUserProgress() * 100}%` }}
+                style={{ width: `${progress}%` }}
               ></div>
             </div>
           </div>
@@ -616,7 +710,7 @@ const TutorialCard = ({ tutorial, onClick, user }) => {
         {/* Tags */}
         {tutorial.tags && tutorial.tags.length > 0 && (
           <div className="flex flex-wrap gap-1 mb-3">
-            {tutorial.tags.map((tag, index) => (
+            {tutorial.tags.slice(0, 3).map((tag, index) => (
               <span 
                 key={index}
                 className="inline-block px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded-full"
@@ -629,7 +723,7 @@ const TutorialCard = ({ tutorial, onClick, user }) => {
         
         {/* Action button */}
         <div className="flex items-center text-emerald-600 font-medium text-sm">
-          <span>{user && getUserProgress() > 0 ? 'Continue Learning' : 'Start Learning'}</span>
+          <span>{user && progress > 0 ? 'Continue Learning' : 'Start Learning'}</span>
           <ArrowRight size={16} className="ml-1" />
         </div>
       </div>
