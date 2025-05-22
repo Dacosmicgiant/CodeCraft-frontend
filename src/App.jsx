@@ -17,6 +17,7 @@ import ProgressPage from './pages/Progress';
 // Dynamic tutorial pages
 import DynamicTutorial from './pages/tutorials/DynamicTutorial';
 import DynamicLesson from './pages/tutorials/DynamicLesson';
+import DynamicTechnology from './pages/tutorials/DynamicTechnology';
 
 // Admin pages
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -108,10 +109,22 @@ function App() {
                 </ProtectedRoute>
               } />
               
+              {/* Dynamic routes for technologies */}
+              <Route path="technologies/:technologySlug" element={<DynamicTechnology />} />
               
               {/* Dynamic routes for tutorials and lessons */}
+              {/* Order matters - more specific routes should come first */}
+              
+              {/* Direct tutorial by ID */}
+              <Route path="tutorials/:tutorialId" element={<DynamicTutorial />} />
+              
+              {/* Tutorial by domain and technology */}
               <Route path="tutorials/:domain/:technology" element={<DynamicTutorial />} />
+              
+              {/* Specific tutorial by domain, technology, and slug */}
               <Route path="tutorials/:domain/:technology/:tutorialSlug" element={<DynamicTutorial />} />
+              
+              {/* Lesson routes */}
               <Route path="lessons/:lessonId" element={<DynamicLesson />} />
               <Route path="tutorials/:tutorialId/lessons/:lessonSlug" element={<DynamicLesson />} />
             </Route>

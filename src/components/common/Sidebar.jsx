@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
-import { ChevronDown, ChevronRight, Hash, Folder, File, Code, BookOpen, Loader, AlertCircle } from 'lucide-react';
+import { ChevronDown, ChevronRight, Hash, Folder, File, Code, BookOpen, Loader, AlertCircle, Play, CheckCircle } from 'lucide-react';
 import { domainAPI, technologyAPI, tutorialAPI, lessonAPI } from '../../services/api';
 
 const Sidebar = ({ currentTopic, onTopicChange }) => {
@@ -299,7 +299,7 @@ const Sidebar = ({ currentTopic, onTopicChange }) => {
   
   // Check if a path is active
   const isActive = (path) => {
-    return location.pathname === path;
+    return location.pathname === path || location.pathname.startsWith(path);
   };
   
   // Helper function to get the domain icon
@@ -325,7 +325,14 @@ const Sidebar = ({ currentTopic, onTopicChange }) => {
     if (name.includes('react')) return '⚛️';
     if (name.includes('node')) return '🟢';
     if (name.includes('python')) return '🐍';
-    return '#';
+    if (name.includes('java')) return '☕';
+    if (name.includes('php')) return '🐘';
+    return '💻';
+  };
+
+  // Get tutorial icon based on technology
+  const getTutorialIcon = (tutorial) => {
+    return <File size={12} className="text-gray-500" />;
   };
   
   // Loading state
@@ -389,52 +396,72 @@ const Sidebar = ({ currentTopic, onTopicChange }) => {
                   {/* Technology Level */}
                   {domain.technologies?.map((tech) => (
                     <div key={tech._id} className="mb-1">
-                      <button
-                        onClick={() => toggleTechnology(tech._id)}
-                        className={`flex items-center justify-between w-full px-3 py-2 text-sm rounded-md ${
-                          isActive(`/tutorials/${tech.slug}`)
-                            ? 'bg-emerald-100 text-emerald-700 font-medium'
-                            : 'text-gray-700 hover:bg-gray-100'
-                        }`}
-                      >
-                        <div className="flex items-center">
+                      <div className="flex items-center">
+                        {/* Technology Link */}
+                        <Link
+                          to={`/technologies/${tech.slug || tech._id}`}
+                          className={`flex items-center flex-1 px-3 py-2 text-sm rounded-md transition-colors ${
+                            isActive(`/technologies/${tech.slug || tech._id}`)
+                              ? 'bg-emerald-100 text-emerald-700 font-medium'
+                              : 'text-gray-700 hover:bg-gray-100'
+                          }`}
+                        >
                           <span className="mr-2 text-sm">{getTechnologyIcon(tech.name)}</span>
-                          <span>{tech.name}</span>
-                        </div>
-                        {loadingStates.tutorials[tech._id] ? (
-                          <Loader size={12} className="animate-spin text-gray-500" />
-                        ) : (
-                          expandedTechnologies[tech._id] ? (
-                            <ChevronDown size={14} className="text-gray-500" />
+                          <span className="flex-1">{tech.name}</span>
+                        </Link>
+                        
+                        {/* Expand Button */}
+                        <button
+                          onClick={() => toggleTechnology(tech._id)}
+                          className="p-1.5 ml-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
+                        >
+                          {loadingStates.tutorials[tech._id] ? (
+                            <Loader size={12} className="animate-spin" />
                           ) : (
-                            <ChevronRight size={14} className="text-gray-500" />
-                          )
-                        )}
-                      </button>
+                            expandedTechnologies[tech._id] ? (
+                              <ChevronDown size={14} />
+                            ) : (
+                              <ChevronRight size={14} />
+                            )
+                          )}
+                        </button>
+                      </div>
                       
                       {/* Tutorial Level */}
                       {expandedTechnologies[tech._id] && tech.tutorials && (
                         <div className="ml-4 mt-1">
                           {tech.tutorials.map((tutorial) => (
                             <div key={tutorial._id} className="mb-1">
-                              <button
-                                onClick={() => toggleTutorial(tutorial._id)}
-                                className="flex items-center justify-between w-full px-3 py-2 text-xs rounded-md text-gray-700 hover:bg-gray-50"
-                              >
-                                <div className="flex items-center">
-                                  <File size={12} className="mr-2 flex-shrink-0" />
-                                  <span className="truncate">{tutorial.title}</span>
-                                </div>
-                                {loadingStates.lessons[tutorial._id] ? (
-                                  <Loader size={10} className="animate-spin text-gray-500" />
-                                ) : (
-                                  expandedTutorials[tutorial._id] ? (
-                                    <ChevronDown size={12} className="text-gray-500" />
+                              <div className="flex items-center">
+                                {/* Tutorial Link */}
+                                <Link
+                                  to={`/tutorials/${tutorial.slug || tutorial._id}`}
+                                  className={`flex items-center flex-1 px-3 py-2 text-xs rounded-md transition-colors ${
+                                    isActive(`/tutorials/${tutorial.slug || tutorial._id}`)
+                                      ? 'bg-emerald-100 text-emerald-700 font-medium'
+                                      : 'text-gray-700 hover:bg-gray-100'
+                                  }`}
+                                >
+                                  {getTutorialIcon(tutorial)}
+                                  <span className="ml-2 truncate flex-1">{tutorial.title}</span>
+                                </Link>
+                                
+                                {/* Expand Button */}
+                                <button
+                                  onClick={() => toggleTutorial(tutorial._id)}
+                                  className="p-1.5 ml-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
+                                >
+                                  {loadingStates.lessons[tutorial._id] ? (
+                                    <Loader size={10} className="animate-spin" />
                                   ) : (
-                                    <ChevronRight size={12} className="text-gray-500" />
-                                  )
-                                )}
-                              </button>
+                                    expandedTutorials[tutorial._id] ? (
+                                      <ChevronDown size={12} />
+                                    ) : (
+                                      <ChevronRight size={12} />
+                                    )
+                                  )}
+                                </button>
+                              </div>
                               
                               {/* Lesson/Lecture Level */}
                               {expandedTutorials[tutorial._id] && tutorial.lessons && (
@@ -449,12 +476,21 @@ const Sidebar = ({ currentTopic, onTopicChange }) => {
                                           : 'text-gray-600 hover:bg-gray-50 hover:text-emerald-700'
                                       }`}
                                     >
-                                      <div className="w-4 h-4 bg-gray-200 rounded-full mr-2 flex items-center justify-center">
-                                        <span className="text-xs font-medium text-gray-600">
-                                          {index + 1}
-                                        </span>
+                                      <div className="w-5 h-5 bg-gray-200 rounded-full mr-2 flex items-center justify-center flex-shrink-0">
+                                        {lesson.isCompleted ? (
+                                          <CheckCircle size={12} className="text-green-600" />
+                                        ) : (
+                                          <span className="text-xs font-medium text-gray-600">
+                                            {index + 1}
+                                          </span>
+                                        )}
                                       </div>
-                                      <span className="truncate">{lesson.title}</span>
+                                      <span className="truncate flex-1">{lesson.title}</span>
+                                      {lesson.duration && (
+                                        <span className="ml-1 text-xs text-gray-400">
+                                          {lesson.duration}m
+                                        </span>
+                                      )}
                                     </Link>
                                   ))}
                                 </div>
