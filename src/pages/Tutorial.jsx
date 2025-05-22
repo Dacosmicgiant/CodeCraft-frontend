@@ -503,8 +503,8 @@ const TutorialPage = () => {
         </p>
       </div>
 
-      {/* Featured Categories Component */}
-      <TutorialCategories />
+      {/* Featured Categories Component
+      <TutorialCategories /> */}
       
       {/* Loading State */}
       {isLoading && (
