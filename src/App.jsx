@@ -9,6 +9,7 @@ import HomePage from './pages/Home';
 import LoginPage from './pages/Login';
 import RegisterPage from './pages/Register';
 import TutorialPage from './pages/Tutorial';
+import DomainsPage from './pages/Domains';
 import ProfilePage from './pages/Profile';
 import NotFoundPage from './pages/NotFound';
 import BookmarksPage from './pages/Bookmarks';
@@ -18,6 +19,7 @@ import ProgressPage from './pages/Progress';
 import DynamicTutorial from './pages/tutorials/DynamicTutorial';
 import DynamicLesson from './pages/tutorials/DynamicLesson';
 import DynamicTechnology from './pages/tutorials/DynamicTechnology';
+import DynamicDomain from './pages/tutorials/DynamicDomain';
 
 // Admin pages
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -91,6 +93,7 @@ function App() {
             <Route path="/" element={<MainLayout />}>
               <Route index element={<HomePage />} />
               <Route path="tutorials" element={<TutorialPage />} />
+              <Route path="domains" element={<DomainsPage />} />
               
               {/* User related routes */}
               <Route path="profile" element={
@@ -108,6 +111,9 @@ function App() {
                   <ProgressPage />
                 </ProtectedRoute>
               } />
+              
+              {/* Dynamic routes for domains */}
+              <Route path="domains/:domainSlug" element={<DynamicDomain />} />
               
               {/* Dynamic routes for technologies */}
               <Route path="technologies/:technologySlug" element={<DynamicTechnology />} />

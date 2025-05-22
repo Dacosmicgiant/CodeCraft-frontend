@@ -369,27 +369,56 @@ const Sidebar = ({ currentTopic, onTopicChange }) => {
     <aside className="w-64 h-full bg-white border-r">
       <nav className="h-full overflow-y-auto">
         <div className="p-2">
+          {/* Quick Links */}
+          <div className="mb-4 border-b pb-2">
+            <Link
+              to="/domains"
+              className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                isActive('/domains') && location.pathname === '/domains'
+                  ? 'bg-emerald-100 text-emerald-700'
+                  : 'text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              <Folder size={16} className="mr-2" />
+              All Domains
+            </Link>
+          </div>
+
           {/* Domain Level */}
           {domains.map((domain) => (
             <div key={domain._id} className="mb-2">
-              <button
-                onClick={() => toggleDomain(domain._id)}
-                className="flex items-center justify-between w-full px-3 py-2 text-left text-sm font-medium text-gray-800 hover:bg-gray-100 rounded-md"
-              >
-                <div className="flex items-center">
+              <div className="flex items-center">
+                {/* Domain Link */}
+                <Link
+                  to={`/domains/${domain.slug || domain._id}`}
+                  className={`flex items-center flex-1 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                    isActive(`/domains/${domain.slug || domain._id}`)
+                      ? 'bg-emerald-100 text-emerald-700'
+                      : 'text-gray-800 hover:bg-gray-100'
+                  }`}
+                  title={`View ${domain.name} domain`}
+                >
                   {getDomainIcon(domain.icon)}
-                  <span className="ml-2">{domain.name}</span>
-                </div>
-                {loadingStates.technologies[domain._id] ? (
-                  <Loader size={14} className="animate-spin text-gray-500" />
-                ) : (
-                  expandedDomains[domain._id] ? (
-                    <ChevronDown size={16} className="text-gray-500" />
+                  <span className="ml-2 flex-1 truncate">{domain.name}</span>
+                </Link>
+                
+                {/* Expand Button */}
+                <button
+                  onClick={() => toggleDomain(domain._id)}
+                  className="p-1.5 ml-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
+                  title={expandedDomains[domain._id] ? 'Collapse' : 'Expand'}
+                >
+                  {loadingStates.technologies[domain._id] ? (
+                    <Loader size={14} className="animate-spin" />
                   ) : (
-                    <ChevronRight size={16} className="text-gray-500" />
-                  )
-                )}
-              </button>
+                    expandedDomains[domain._id] ? (
+                      <ChevronDown size={16} />
+                    ) : (
+                      <ChevronRight size={16} />
+                    )
+                  )}
+                </button>
+              </div>
               
               {expandedDomains[domain._id] && (
                 <div className="ml-4 mt-1">
@@ -405,15 +434,17 @@ const Sidebar = ({ currentTopic, onTopicChange }) => {
                               ? 'bg-emerald-100 text-emerald-700 font-medium'
                               : 'text-gray-700 hover:bg-gray-100'
                           }`}
+                          title={`View ${tech.name} tutorials`}
                         >
                           <span className="mr-2 text-sm">{getTechnologyIcon(tech.name)}</span>
-                          <span className="flex-1">{tech.name}</span>
+                          <span className="flex-1 truncate">{tech.name}</span>
                         </Link>
                         
                         {/* Expand Button */}
                         <button
                           onClick={() => toggleTechnology(tech._id)}
                           className="p-1.5 ml-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
+                          title={expandedTechnologies[tech._id] ? 'Collapse tutorials' : 'Show tutorials'}
                         >
                           {loadingStates.tutorials[tech._id] ? (
                             <Loader size={12} className="animate-spin" />
@@ -441,6 +472,7 @@ const Sidebar = ({ currentTopic, onTopicChange }) => {
                                       ? 'bg-emerald-100 text-emerald-700 font-medium'
                                       : 'text-gray-700 hover:bg-gray-100'
                                   }`}
+                                  title={tutorial.title}
                                 >
                                   {getTutorialIcon(tutorial)}
                                   <span className="ml-2 truncate flex-1">{tutorial.title}</span>
@@ -450,6 +482,7 @@ const Sidebar = ({ currentTopic, onTopicChange }) => {
                                 <button
                                   onClick={() => toggleTutorial(tutorial._id)}
                                   className="p-1.5 ml-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
+                                  title={expandedTutorials[tutorial._id] ? 'Collapse lessons' : 'Show lessons'}
                                 >
                                   {loadingStates.lessons[tutorial._id] ? (
                                     <Loader size={10} className="animate-spin" />
@@ -475,6 +508,7 @@ const Sidebar = ({ currentTopic, onTopicChange }) => {
                                           ? 'bg-emerald-50 text-emerald-700'
                                           : 'text-gray-600 hover:bg-gray-50 hover:text-emerald-700'
                                       }`}
+                                      title={lesson.title}
                                     >
                                       <div className="w-5 h-5 bg-gray-200 rounded-full mr-2 flex items-center justify-center flex-shrink-0">
                                         {lesson.isCompleted ? (
