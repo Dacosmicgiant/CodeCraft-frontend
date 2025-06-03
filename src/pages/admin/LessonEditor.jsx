@@ -1,11 +1,314 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { 
   ArrowLeft, Save, Plus, Trash2, Youtube, Code, 
   FileText, Image, ExternalLink, AlertCircle, Check, 
-  ArrowUp, ArrowDown, GripVertical 
+  ArrowUp, ArrowDown, GripVertical, Bold, Italic, 
+  Underline, AlignLeft, AlignCenter, AlignRight, List,
+  ListOrdered
 } from 'lucide-react';
 import { lessonAPI, tutorialAPI } from '../../services/api';
+
+// Rich Text Editor Component
+const RichTextEditor = ({ value, onChange, placeholder }) => {
+  const editorRef = useRef(null);
+  const [isInitialized, setIsInitialized] = useState(false);
+  
+  useEffect(() => {
+    if (editorRef.current && !isInitialized) {
+      editorRef.current.innerHTML = value || '';
+      setIsInitialized(true);
+    }
+  }, [value, isInitialized]);
+  
+  const execCommand = (command, commandValue = null) => {
+    editorRef.current.focus();
+    
+    if (command === 'formatBlock') {
+      // Handle heading formatting differently
+      const selection = window.getSelection();
+      if (selection.rangeCount > 0) {
+        document.execCommand('formatBlock', false, `<${commandValue}>`);
+      }
+    } else if (command === 'insertUnorderedList' || command === 'insertOrderedList') {
+      // Handle lists with better formatting
+      document.execCommand(command, false, null);
+      // Ensure proper styling after list creation
+      setTimeout(() => {
+        const lists = editorRef.current.querySelectorAll('ul, ol');
+        lists.forEach(list => {
+          if (list.tagName === 'UL') {
+            list.style.listStyleType = 'disc';
+            list.style.paddingLeft = '2rem';
+            list.style.margin = '0.5rem 0';
+          } else if (list.tagName === 'OL') {
+            list.style.listStyleType = 'decimal';
+            list.style.paddingLeft = '2rem';
+            list.style.margin = '0.5rem 0';
+          }
+          
+          // Style list items
+          const items = list.querySelectorAll('li');
+          items.forEach(item => {
+            item.style.display = 'list-item';
+            item.style.margin = '0.2rem 0';
+            if (list.tagName === 'UL') {
+              item.style.listStyleType = 'disc';
+            } else if (list.tagName === 'OL') {
+              item.style.listStyleType = 'decimal';
+            }
+          });
+        });
+      }, 10);
+    } else {
+      document.execCommand(command, false, commandValue);
+    }
+    
+    handleChange();
+  };
+  
+  const handleChange = () => {
+    if (editorRef.current && onChange) {
+      onChange(editorRef.current.innerHTML);
+    }
+  };
+  
+  const handleInput = (e) => {
+    handleChange();
+  };
+  
+  const handleKeyDown = (e) => {
+    // Prevent default behavior for some formatting shortcuts
+    if (e.ctrlKey || e.metaKey) {
+      switch (e.key) {
+        case 'b':
+          e.preventDefault();
+          execCommand('bold');
+          break;
+        case 'i':
+          e.preventDefault();
+          execCommand('italic');
+          break;
+        case 'u':
+          e.preventDefault();
+          execCommand('underline');
+          break;
+      }
+    }
+  };
+  
+  const isCommandActive = (command) => {
+    try {
+      return document.queryCommandState(command);
+    } catch (e) {
+      return false;
+    }
+  };
+  
+  return (
+    <div className="border border-gray-300 rounded-md focus-within:ring-2 focus-within:ring-emerald-500 focus-within:border-emerald-500">
+      {/* Toolbar */}
+      <div className="border-b border-gray-200 p-2 flex flex-wrap gap-1">
+        {/* Text Formatting */}
+        <button
+          type="button"
+          onClick={() => execCommand('bold')}
+          className={`p-2 rounded-md hover:bg-gray-100 ${isCommandActive('bold') ? 'bg-gray-200' : ''}`}
+          title="Bold (Ctrl+B)"
+        >
+          <Bold size={16} />
+        </button>
+        <button
+          type="button"
+          onClick={() => execCommand('italic')}
+          className={`p-2 rounded-md hover:bg-gray-100 ${isCommandActive('italic') ? 'bg-gray-200' : ''}`}
+          title="Italic (Ctrl+I)"
+        >
+          <Italic size={16} />
+        </button>
+        <button
+          type="button"
+          onClick={() => execCommand('underline')}
+          className={`p-2 rounded-md hover:bg-gray-100 ${isCommandActive('underline') ? 'bg-gray-200' : ''}`}
+          title="Underline (Ctrl+U)"
+        >
+          <Underline size={16} />
+        </button>
+        
+        <div className="border-l border-gray-300 mx-1"></div>
+        
+        {/* Alignment */}
+        <button
+          type="button"
+          onClick={() => execCommand('justifyLeft')}
+          className={`p-2 rounded-md hover:bg-gray-100 ${isCommandActive('justifyLeft') ? 'bg-gray-200' : ''}`}
+          title="Align Left"
+        >
+          <AlignLeft size={16} />
+        </button>
+        <button
+          type="button"
+          onClick={() => execCommand('justifyCenter')}
+          className={`p-2 rounded-md hover:bg-gray-100 ${isCommandActive('justifyCenter') ? 'bg-gray-200' : ''}`}
+          title="Center"
+        >
+          <AlignCenter size={16} />
+        </button>
+        <button
+          type="button"
+          onClick={() => execCommand('justifyRight')}
+          className={`p-2 rounded-md hover:bg-gray-100 ${isCommandActive('justifyRight') ? 'bg-gray-200' : ''}`}
+          title="Align Right"
+        >
+          <AlignRight size={16} />
+        </button>
+        
+        <div className="border-l border-gray-300 mx-1"></div>
+        
+        {/* Lists */}
+        <button
+          type="button"
+          onClick={() => execCommand('insertUnorderedList')}
+          className={`p-2 rounded-md hover:bg-gray-100 ${isCommandActive('insertUnorderedList') ? 'bg-gray-200' : ''}`}
+          title="Bullet List"
+        >
+          <List size={16} />
+        </button>
+        <button
+          type="button"
+          onClick={() => execCommand('insertOrderedList')}
+          className={`p-2 rounded-md hover:bg-gray-100 ${isCommandActive('insertOrderedList') ? 'bg-gray-200' : ''}`}
+          title="Numbered List"
+        >
+          <ListOrdered size={16} />
+        </button>
+        
+        <div className="border-l border-gray-300 mx-1"></div>
+        
+        {/* Heading Buttons */}
+        <button
+          type="button"
+          onClick={() => execCommand('formatBlock', 'h1')}
+          className="px-2 py-1 text-sm rounded-md hover:bg-gray-100 font-bold"
+          title="Heading 1"
+        >
+          H1
+        </button>
+        <button
+          type="button"
+          onClick={() => execCommand('formatBlock', 'h2')}
+          className="px-2 py-1 text-sm rounded-md hover:bg-gray-100 font-semibold"
+          title="Heading 2"
+        >
+          H2
+        </button>
+        <button
+          type="button"
+          onClick={() => execCommand('formatBlock', 'h3')}
+          className="px-2 py-1 text-sm rounded-md hover:bg-gray-100 font-medium"
+          title="Heading 3"
+        >
+          H3
+        </button>
+        <button
+          type="button"
+          onClick={() => execCommand('formatBlock', 'p')}
+          className="px-2 py-1 text-sm rounded-md hover:bg-gray-100"
+          title="Paragraph"
+        >
+          P
+        </button>
+      </div>
+      
+      {/* Editor */}
+      <div
+        ref={editorRef}
+        contentEditable
+        className="p-3 min-h-[120px] focus:outline-none prose prose-sm max-w-none"
+        onInput={handleInput}
+        onKeyDown={handleKeyDown}
+        suppressContentEditableWarning={true}
+        style={{
+          fontSize: '14px',
+          lineHeight: '1.5'
+        }}
+      />
+      
+      {/* Placeholder */}
+      {(!value || value.trim() === '') && (
+        <div 
+          className="absolute pointer-events-none text-gray-400 italic"
+          style={{ 
+            top: '60px', 
+            left: '15px',
+            fontSize: '14px'
+          }}
+        >
+          {placeholder}
+        </div>
+      )}
+      
+      <style jsx>{`
+        .prose h1 { 
+          font-size: 2rem; 
+          font-weight: 700; 
+          margin: 0.5rem 0;
+          line-height: 1.2;
+        }
+        .prose h2 { 
+          font-size: 1.5rem; 
+          font-weight: 600; 
+          margin: 0.4rem 0;
+          line-height: 1.3;
+        }
+        .prose h3 { 
+          font-size: 1.25rem; 
+          font-weight: 500; 
+          margin: 0.3rem 0;
+          line-height: 1.4;
+        }
+        .prose p { 
+          margin: 0.25rem 0;
+          line-height: 1.5;
+        }
+        .prose ul { 
+          margin: 0.5rem 0; 
+          padding-left: 2rem;
+          list-style-type: disc !important;
+          list-style-position: outside !important;
+        }
+        .prose ol { 
+          margin: 0.5rem 0; 
+          padding-left: 2rem;
+          list-style-type: decimal !important;
+          list-style-position: outside !important;
+        }
+        .prose li { 
+          margin: 0.2rem 0;
+          display: list-item !important;
+          line-height: 1.5;
+        }
+        .prose ul li {
+          list-style-type: disc !important;
+        }
+        .prose ol li {
+          list-style-type: decimal !important;
+        }
+        /* Ensure nested lists work */
+        .prose ul ul {
+          list-style-type: circle !important;
+          margin: 0.2rem 0;
+          padding-left: 1.5rem;
+        }
+        .prose ol ol {
+          list-style-type: lower-alpha !important;
+          margin: 0.2rem 0;
+          padding-left: 1.5rem;
+        }
+      `}</style>
+    </div>
+  );
+};
 
 const LessonEditor = () => {
   const { id } = useParams();
@@ -115,7 +418,7 @@ const LessonEditor = () => {
       case 'text':
         newBlock = { 
           type: 'text',
-          data: { text: '' }
+          data: { html: '' }
         };
         break;
       case 'code':
@@ -324,13 +627,11 @@ const LessonEditor = () => {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Text Content
             </label>
-            <textarea
-              value={block.data?.text || ''}
-              onChange={(e) => updateContentBlock(index, 'data.text', e.target.value)}
-              rows={4}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            <RichTextEditor
+              value={block.data?.html || block.data?.text || ''}
+              onChange={(value) => updateContentBlock(index, 'data.html', value)}
               placeholder="Enter your content here..."
-            ></textarea>
+            />
           </div>
         );
         
