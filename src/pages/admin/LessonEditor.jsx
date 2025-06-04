@@ -156,6 +156,7 @@ const LessonEditor = () => {
   
   // Handle content changes from EditorJS
   const handleContentChange = (data) => {
+    console.log('📝 Editor content changed:', data);
     setFormData(prev => ({
       ...prev,
       content: data
@@ -181,6 +182,7 @@ const LessonEditor = () => {
         await lessonAPI.update(id, lessonData);
         setHasUnsavedChanges(false);
         setLastSaved(new Date());
+        console.log('💾 Auto-saved lesson');
       }
     } catch (error) {
       console.error('Auto-save failed:', error);
@@ -275,7 +277,17 @@ const LessonEditor = () => {
   };
   
   // Handle preview toggle
-  const togglePreview = () => {
+  const togglePreview = async () => {
+    if (!showPreview) {
+      // Save current editor content before switching to preview
+      const editorData = await editorRef.current?.save();
+      if (editorData) {
+        setFormData(prev => ({
+          ...prev,
+          content: editorData
+        }));
+      }
+    }
     setShowPreview(!showPreview);
   };
   
@@ -286,245 +298,268 @@ const LessonEditor = () => {
   };
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center">
-          <button 
-            onClick={() => navigate('/admin/lessons')}
-            className="mr-4 p-2 rounded-md hover:bg-gray-100"
-            disabled={isLoading}
-          >
-            <ArrowLeft size={20} />
-          </button>
-          <div>
-            <h1 className="text-2xl font-bold">
-              {isEditing ? 'Edit Lesson' : 'Create New Lesson'}
-            </h1>
-            {lastSaved && (
-              <p className="text-sm text-gray-500 mt-1">
-                Last saved: {lastSaved.toLocaleTimeString()}
-                {hasUnsavedChanges && <span className="text-orange-600 ml-2">• Unsaved changes</span>}
-              </p>
-            )}
-          </div>
-        </div>
-        
-        <div className="flex gap-2">
-          <button
-            onClick={togglePreview}
-            className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-2"
-            disabled={isLoading}
-          >
-            <Eye size={18} />
-            {showPreview ? 'Edit' : 'Preview'}
-          </button>
-        </div>
-      </div>
-      
-      {/* Error Message */}
-      {apiError && (
-        <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-md flex items-center">
-          <AlertCircle size={18} className="mr-2" />
-          {apiError}
-        </div>
-      )}
-      
-      {/* Success Message */}
-      {saveSuccess && (
-        <div className="mb-6 p-4 bg-green-50 text-green-700 rounded-md flex items-center">
-          <Check size={18} className="mr-2" />
-          Lesson {isEditing ? 'updated' : 'created'} successfully!
-        </div>
-      )}
-      
-      {isLoading && !formData.title && isEditing ? (
-        <div className="flex justify-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-emerald-600"></div>
-        </div>
-      ) : (
-        <div className="space-y-6">
-          {/* Lesson Details */}
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
-              <FileText size={20} />
-              Lesson Details
-            </h2>
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
-                  Lesson Title *
-                </label>
-                <input
-                  type="text"
-                  id="title"
-                  name="title"
-                  value={formData.title}
-                  onChange={handleChange}
-                  className={`w-full px-3 py-2 border rounded-md ${
-                    errors.title ? 'border-red-300' : 'border-gray-300'
-                  } focus:outline-none focus:ring-2 focus:ring-emerald-500`}
-                  placeholder="e.g., Introduction to HTML"
-                  disabled={isLoading}
-                />
-                {errors.title && (
-                  <p className="mt-1 text-sm text-red-600">{errors.title}</p>
-                )}
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label htmlFor="tutorial" className="block text-sm font-medium text-gray-700 mb-1">
-                    Tutorial *
-                  </label>
-                  <select
-                    id="tutorial"
-                    name="tutorial"
-                    value={formData.tutorial}
-                    onChange={handleChange}
-                    className={`w-full px-3 py-2 border rounded-md ${
-                      errors.tutorial ? 'border-red-300' : 'border-gray-300'
-                    } focus:outline-none focus:ring-2 focus:ring-emerald-500`}
-                    disabled={isEditing || isTutorialsLoading || isLoading}
-                  >
-                    <option value="">Select a tutorial</option>
-                    {tutorials.map(tutorial => (
-                      <option key={tutorial._id} value={tutorial._id}>
-                        {tutorial.title}
-                      </option>
-                    ))}
-                  </select>
-                  {isTutorialsLoading && (
-                    <p className="mt-1 text-sm text-gray-500">Loading tutorials...</p>
-                  )}
-                  {errors.tutorial && (
-                    <p className="mt-1 text-sm text-red-600">{errors.tutorial}</p>
-                  )}
-                </div>
-                
-                <div>
-                  <label htmlFor="order" className="block text-sm font-medium text-gray-700 mb-1">
-                    Order *
-                  </label>
-                  <input
-                    type="number"
-                    id="order"
-                    name="order"
-                    value={formData.order}
-                    onChange={handleChange}
-                    min="1"
-                    className={`w-full px-3 py-2 border rounded-md ${
-                      errors.order ? 'border-red-300' : 'border-gray-300'
-                    } focus:outline-none focus:ring-2 focus:ring-emerald-500`}
-                    disabled={isLoading}
-                  />
-                  {errors.order && (
-                    <p className="mt-1 text-sm text-red-600">{errors.order}</p>
-                  )}
-                </div>
-                
-                <div>
-                  <label htmlFor="duration" className="block text-sm font-medium text-gray-700 mb-1">
-                    Duration (minutes) *
-                  </label>
-                  <input
-                    type="number"
-                    id="duration"
-                    name="duration"
-                    value={formData.duration}
-                    onChange={handleChange}
-                    min="1"
-                    className={`w-full px-3 py-2 border rounded-md ${
-                      errors.duration ? 'border-red-300' : 'border-gray-300'
-                    } focus:outline-none focus:ring-2 focus:ring-emerald-500`}
-                    disabled={isLoading}
-                  />
-                  {errors.duration && (
-                    <p className="mt-1 text-sm text-red-600">{errors.duration}</p>
-                  )}
-                </div>
-              </div>
-              
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="isPublished"
-                  name="isPublished"
-                  checked={formData.isPublished}
-                  onChange={handleChange}
-                  className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
-                  disabled={isLoading}
-                />
-                <label htmlFor="isPublished" className="ml-2 block text-sm text-gray-900">
-                  Publish this lesson (make it visible to users)
-                </label>
-              </div>
-
-              {/* Show current assignment when editing */}
-              {isEditing && formData.tutorial && !isLoading && (
-                <div className="bg-gray-50 p-4 rounded-md">
-                  <h3 className="text-sm font-medium text-gray-700 mb-2">Current Assignment:</h3>
-                  <p className="text-sm text-gray-600">
-                    Tutorial: <span className="font-medium">{getTutorialName(formData.tutorial)}</span>
-                  </p>
-                </div>
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-4xl mx-auto px-4 py-6">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center">
+            <button 
+              onClick={() => navigate('/admin/lessons')}
+              className="mr-4 p-2 rounded-md hover:bg-gray-100 transition-colors"
+              disabled={isLoading}
+            >
+              <ArrowLeft size={20} />
+            </button>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">
+                {isEditing ? 'Edit Lesson' : 'Create New Lesson'}
+              </h1>
+              {lastSaved && (
+                <p className="text-sm text-gray-500 mt-1">
+                  Last saved: {lastSaved.toLocaleTimeString()}
+                  {hasUnsavedChanges && <span className="text-orange-600 ml-2">• Unsaved changes</span>}
+                </p>
               )}
             </div>
           </div>
           
-          {/* Lesson Content Editor */}
-          {!showPreview ? (
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="text-lg font-medium mb-4">Lesson Content</h2>
-              <EditorJSComponent
-                ref={editorRef}
-                data={formData.content}
-                onChange={handleContentChange}
-                placeholder="Start writing your lesson content..."
-                readOnly={isLoading}
-                className="min-h-96"
-              />
-            </div>
-          ) : (
-            /* Preview Mode */
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="text-lg font-medium mb-4">Preview</h2>
-              <div className="prose prose-sm max-w-none">
-                <h1 className="text-2xl font-bold mb-4">{formData.title}</h1>
-                <div className="flex items-center gap-4 text-sm text-gray-500 mb-6 pb-4 border-b">
-                  <span>Duration: {formData.duration} minutes</span>
-                  <span>Order: #{formData.order}</span>
-                  <span>Status: {formData.isPublished ? 'Published' : 'Draft'}</span>
-                </div>
-                <EditorJSComponent
-                  data={formData.content}
-                  readOnly={true}
-                  className="border-none p-0"
-                />
-              </div>
-            </div>
-          )}
-          
-          {/* Submit Buttons */}
-          <div className="flex justify-end space-x-3">
+          <div className="flex gap-2">
             <button
-              type="button"
-              onClick={() => navigate('/admin/lessons')}
-              className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+              onClick={togglePreview}
+              className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-2 transition-colors"
               disabled={isLoading}
             >
-              Cancel
-            </button>
-            <button
-              onClick={handleSubmit}
-              disabled={isLoading || isTutorialsLoading}
-              className="px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-2"
-            >
-              <Save size={18} />
-              {isLoading ? 'Saving...' : 'Save Lesson'}
+              <Eye size={18} />
+              {showPreview ? 'Edit' : 'Preview'}
             </button>
           </div>
         </div>
-      )}
+        
+        {/* Error Message */}
+        {apiError && (
+          <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-md flex items-center">
+            <AlertCircle size={18} className="mr-2 flex-shrink-0" />
+            {apiError}
+          </div>
+        )}
+        
+        {/* Success Message */}
+        {saveSuccess && (
+          <div className="mb-6 p-4 bg-green-50 text-green-700 rounded-md flex items-center">
+            <Check size={18} className="mr-2 flex-shrink-0" />
+            Lesson {isEditing ? 'updated' : 'created'} successfully!
+          </div>
+        )}
+        
+        {isLoading && !formData.title && isEditing ? (
+          <div className="flex justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-emerald-600"></div>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {/* Lesson Details Form */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <h2 className="text-lg font-medium mb-6 flex items-center gap-2 text-gray-900 border-b border-gray-100 pb-3">
+                <FileText size={20} className="text-emerald-600" />
+                Lesson Details
+              </h2>
+              
+              <div className="space-y-6">
+                {/* Title Field */}
+                <div>
+                  <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
+                    Lesson Title *
+                  </label>
+                  <input
+                    type="text"
+                    id="title"
+                    name="title"
+                    value={formData.title}
+                    onChange={handleChange}
+                    className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors ${
+                      errors.title ? 'border-red-300 bg-red-50' : 'border-gray-300 bg-white'
+                    }`}
+                    placeholder="e.g., Introduction to HTML"
+                    disabled={isLoading}
+                  />
+                  {errors.title && (
+                    <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                      <AlertCircle size={16} />
+                      {errors.title}
+                    </p>
+                  )}
+                </div>
+                
+                {/* Tutorial, Order, Duration Fields */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div>
+                    <label htmlFor="tutorial" className="block text-sm font-medium text-gray-700 mb-2">
+                      Tutorial *
+                    </label>
+                    <select
+                      id="tutorial"
+                      name="tutorial"
+                      value={formData.tutorial}
+                      onChange={handleChange}
+                      className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors ${
+                        errors.tutorial ? 'border-red-300 bg-red-50' : 'border-gray-300 bg-white'
+                      }`}
+                      disabled={isEditing || isTutorialsLoading || isLoading}
+                    >
+                      <option value="">Select a tutorial</option>
+                      {tutorials.map(tutorial => (
+                        <option key={tutorial._id} value={tutorial._id}>
+                          {tutorial.title}
+                        </option>
+                      ))}
+                    </select>
+                    {isTutorialsLoading && (
+                      <p className="mt-2 text-sm text-gray-500">Loading tutorials...</p>
+                    )}
+                    {errors.tutorial && (
+                      <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                        <AlertCircle size={16} />
+                        {errors.tutorial}
+                      </p>
+                    )}
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="order" className="block text-sm font-medium text-gray-700 mb-2">
+                      Order *
+                    </label>
+                    <input
+                      type="number"
+                      id="order"
+                      name="order"
+                      value={formData.order}
+                      onChange={handleChange}
+                      min="1"
+                      className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors ${
+                        errors.order ? 'border-red-300 bg-red-50' : 'border-gray-300 bg-white'
+                      }`}
+                      disabled={isLoading}
+                    />
+                    {errors.order && (
+                      <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                        <AlertCircle size={16} />
+                        {errors.order}
+                      </p>
+                    )}
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="duration" className="block text-sm font-medium text-gray-700 mb-2">
+                      Duration (minutes) *
+                    </label>
+                    <input
+                      type="number"
+                      id="duration"
+                      name="duration"
+                      value={formData.duration}
+                      onChange={handleChange}
+                      min="1"
+                      className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors ${
+                        errors.duration ? 'border-red-300 bg-red-50' : 'border-gray-300 bg-white'
+                      }`}
+                      disabled={isLoading}
+                    />
+                    {errors.duration && (
+                      <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                        <AlertCircle size={16} />
+                        {errors.duration}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Publish Checkbox */}
+                <div className="flex items-center p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
+                  <input
+                    type="checkbox"
+                    id="isPublished"
+                    name="isPublished"
+                    checked={formData.isPublished}
+                    onChange={handleChange}
+                    className="h-5 w-5 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
+                    disabled={isLoading}
+                  />
+                  <label htmlFor="isPublished" className="ml-3 block text-sm font-medium text-gray-900">
+                    Publish this lesson (make it visible to users)
+                  </label>
+                </div>
+
+                {/* Current Tutorial Assignment (when editing) */}
+                {isEditing && formData.tutorial && !isLoading && (
+                  <div className="bg-gray-50 p-4 rounded-md">
+                    <h3 className="text-sm font-medium text-gray-700 mb-2">Current Assignment:</h3>
+                    <p className="text-sm text-gray-600">
+                      Tutorial: <span className="font-medium">{getTutorialName(formData.tutorial)}</span>
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            {/* Lesson Content Editor */}
+            {!showPreview ? (
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <h2 className="text-lg font-medium mb-4 text-gray-900 border-b border-gray-100 pb-3">
+                  📝 Lesson Content
+                </h2>
+                <EditorJSComponent
+                  ref={editorRef}
+                  data={formData.content}
+                  onChange={handleContentChange}
+                  placeholder="Start writing your lesson content..."
+                  readOnly={isLoading}
+                  className="min-h-96"
+                />
+              </div>
+            ) : (
+              /* Preview Mode */
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <h2 className="text-lg font-medium mb-4 text-gray-900 border-b border-gray-100 pb-3">
+                  👁️ Preview
+                </h2>
+                <div className="prose prose-sm max-w-none">
+                  <h1 className="text-2xl font-bold mb-4">{formData.title}</h1>
+                  <div className="flex items-center gap-4 text-sm text-gray-500 mb-6 pb-4 border-b">
+                    <span>Duration: {formData.duration} minutes</span>
+                    <span>Order: #{formData.order}</span>
+                    <span>Status: {formData.isPublished ? 'Published' : 'Draft'}</span>
+                  </div>
+                  <EditorJSComponent
+                    data={formData.content}
+                    readOnly={true}
+                    className="border-none p-0"
+                  />
+                </div>
+              </div>
+            )}
+            
+            {/* Submit Buttons */}
+            <div className="flex justify-between items-center bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <button
+                type="button"
+                onClick={() => navigate('/admin/lessons')}
+                className="px-6 py-3 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                disabled={isLoading}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmit}
+                disabled={isLoading || isTutorialsLoading}
+                className="px-6 py-3 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-2 transition-colors"
+              >
+                <Save size={18} />
+                {isLoading ? 'Saving...' : 'Save Lesson'}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

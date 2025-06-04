@@ -1,7 +1,5 @@
 // src/components/EditorJS/EditorJSComponent.jsx
 import React, { useEffect, useRef, useImperativeHandle, forwardRef } from 'react';
-
-// EditorJS imports
 import EditorJS from '@editorjs/editorjs';
 import Header from '@editorjs/header';
 import Paragraph from '@editorjs/paragraph';
@@ -15,222 +13,236 @@ import Embed from '@editorjs/embed';
 import Image from '@editorjs/image';
 
 const EditorJSComponent = forwardRef(({ 
-  data, 
-  onChange, 
-  placeholder = "Let's write an awesome lesson!",
-  readOnly = false,
+  data, // Changed from initialData to data
+  onChange, // Changed from onDataChange to onChange
+  placeholder = "Start writing your lesson content...", 
+  readOnly = false, 
   className = ""
 }, ref) => {
   const editorRef = useRef(null);
-  const editorInstanceRef = useRef(null);
+  const editorInstance = useRef(null);
   const isInitialized = useRef(false);
+  const isReady = useRef(false);
+  const changeTimeout = useRef(null);
+  const editorId = useRef(`editor-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`);
 
-  // Expose methods to parent component
   useImperativeHandle(ref, () => ({
     save: async () => {
-      if (editorInstanceRef.current) {
+      if (editorInstance.current && isReady.current && typeof editorInstance.current.save === 'function') {
         try {
-          const outputData = await editorInstanceRef.current.save();
-          return outputData;
+          const savedData = await editorInstance.current.save();
+          console.log('💾 Editor saved:', savedData);
+          return savedData;
         } catch (error) {
-          console.error('Error saving editor data:', error);
+          console.error('❌ Save error:', error);
+          throw error;
+        }
+      } else if (editorInstance.current && editorInstance.current.isReady) {
+        // Try waiting for ready state
+        try {
+          await editorInstance.current.isReady;
+          const savedData = await editorInstance.current.save();
+          console.log('💾 Editor saved after waiting:', savedData);
+          return savedData;
+        } catch (error) {
+          console.error('❌ Save error after waiting:', error);
           throw error;
         }
       }
+      console.warn('⚠️ Editor instance not ready for saving');
       return null;
     },
-    clear: () => {
-      if (editorInstanceRef.current) {
-        editorInstanceRef.current.clear();
-      }
-    },
-    render: (data) => {
-      if (editorInstanceRef.current) {
-        editorInstanceRef.current.render(data);
-      }
-    },
-    destroy: () => {
-      if (editorInstanceRef.current) {
-        editorInstanceRef.current.destroy();
-        editorInstanceRef.current = null;
-        isInitialized.current = false;
+    clear: async () => {
+      if (editorInstance.current && isReady.current && typeof editorInstance.current.clear === 'function') {
+        try {
+          await editorInstance.current.clear();
+          console.log('🧹 Editor cleared');
+        } catch (error) {
+          console.error('❌ Clear error:', error);
+        }
       }
     }
   }));
 
+  // Initialize editor
   useEffect(() => {
-    // Initialize EditorJS only once
-    if (!isInitialized.current && editorRef.current) {
-      initializeEditor();
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔄 EditorJSComponent mounting...');
     }
+    
+    // Use a longer timeout to ensure DOM is ready and avoid race conditions
+    const initTimeout = setTimeout(() => {
+      if (editorRef.current && !isInitialized.current) {
+        initEditor();
+      }
+    }, 200);
 
     return () => {
-      // Cleanup on unmount
-      if (editorInstanceRef.current) {
-        try {
-          editorInstanceRef.current.destroy();
-        } catch (error) {
-          console.warn('Error destroying editor:', error);
-        }
-        editorInstanceRef.current = null;
-        isInitialized.current = false;
+      clearTimeout(initTimeout);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🗑️ EditorJSComponent unmounting...');
       }
+      // Use async cleanup
+      (async () => {
+        await destroyEditor();
+      })();
     };
-  }, []);
+  }, []); // Only run once on mount
 
-  // Update editor data when prop changes
+  // Handle data changes
   useEffect(() => {
-    if (editorInstanceRef.current && data && isInitialized.current) {
-      try {
-        editorInstanceRef.current.render(data);
-      } catch (error) {
-        console.error('Error rendering data:', error);
+    if (editorInstance.current && isInitialized.current && isReady.current && data) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('📊 Data prop changed, updating editor...');
       }
+      updateEditorData(data);
     }
   }, [data]);
 
-  const initializeEditor = () => {
+  const handleChange = async (api) => {
+    // Clear existing timeout
+    if (changeTimeout.current) {
+      clearTimeout(changeTimeout.current);
+    }
+
+    // Debounce the onChange call
+    changeTimeout.current = setTimeout(async () => {
+      if (onChange && !readOnly && isReady.current && typeof api.saver.save === 'function') {
+        try {
+          const savedData = await api.saver.save();
+          console.log('📝 Content changed:', savedData);
+          onChange(savedData);
+        } catch (error) {
+          console.error('❌ onChange error:', error);
+        }
+      }
+    }, 300);
+  };
+
+  const updateEditorData = async (newData) => {
     try {
+      if (editorInstance.current && isReady.current && typeof editorInstance.current.render === 'function') {
+        await editorInstance.current.render(newData);
+        console.log('✅ Editor data updated');
+      } else if (editorInstance.current && editorInstance.current.isReady) {
+        // Wait for ready state
+        await editorInstance.current.isReady;
+        if (typeof editorInstance.current.render === 'function') {
+          await editorInstance.current.render(newData);
+          console.log('✅ Editor data updated after waiting');
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error updating editor data:', error);
+    }
+  };
+
+  const initEditor = async () => {
+    // Prevent double initialization
+    if (isInitialized.current || isReady.current) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('⏭️ Editor already initialized or initializing');
+      }
+      return;
+    }
+
+    // Ensure the holder is clean before initializing
+    if (editorRef.current) {
+      // Remove any existing content and EditorJS classes
+      editorRef.current.innerHTML = '';
+      editorRef.current.className = 'editor-holder';
+    }
+
+    // Double check that we don't have an existing instance
+    if (editorInstance.current) {
+      await destroyEditor();
+    }
+
+    try {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🚀 Initializing editor with data:', data);
+      }
+      
       const editorConfig = {
-        holder: editorRef.current,
-        placeholder: placeholder,
-        readOnly: readOnly,
-        
-        // Configure tools
+        holder: editorId.current,
+        placeholder,
+        readOnly,
+        data: data || {
+          time: Date.now(),
+          blocks: [],
+          version: "2.28.2"
+        },
         tools: {
           header: {
             class: Header,
             config: {
-              placeholder: 'Enter a header',
+              placeholder: 'Enter heading',
               levels: [2, 3, 4],
-              defaultLevel: 3
+              defaultLevel: 2
             }
           },
-          
           paragraph: {
             class: Paragraph,
             inlineToolbar: true,
             config: {
-              placeholder: 'Tell your story...',
+              placeholder: 'Start typing...'
             }
           },
-          
           list: {
             class: List,
-            inlineToolbar: true,
-            config: {
-              defaultStyle: 'unordered'
-            }
+            inlineToolbar: true
           },
-          
           code: {
             class: Code,
             config: {
-              placeholder: 'Enter code here...'
+              placeholder: 'Enter code...'
             }
           },
-          
           quote: {
             class: Quote,
             inlineToolbar: true,
-            shortcut: 'CMD+SHIFT+O',
             config: {
               quotePlaceholder: 'Enter a quote',
-              captionPlaceholder: 'Quote\'s author',
+              captionPlaceholder: 'Quote author'
             }
           },
-          
           warning: {
             class: Warning,
             inlineToolbar: true,
-            shortcut: 'CMD+SHIFT+W',
             config: {
               titlePlaceholder: 'Title',
-              messagePlaceholder: 'Message',
+              messagePlaceholder: 'Message'
             }
           },
-          
           delimiter: Delimiter,
-          
           table: {
             class: Table,
-            inlineToolbar: true,
-            config: {
-              rows: 2,
-              cols: 3,
-            }
+            inlineToolbar: true
           },
-          
           embed: {
             class: Embed,
             config: {
               services: {
                 youtube: true,
-                coub: true,
-                codepen: {
-                  regex: /https?:\/\/codepen.io\/([^\/\?\&]*)\/pen\/([^\/\?\&]*)/,
-                  embedUrl: 'https://codepen.io/<%= remote_id %>?height=300&theme-id=0&default-tab=css,result&embed-version=2',
-                  html: "<iframe height='300' scrolling='no' frameborder='no' allowtransparency='true' allowfullscreen='true' style='width: 100%;'></iframe>",
-                  height: 300,
-                  width: 600,
-                  id: (groups) => groups.join('/embed/')
-                }
+                codepen: true
               }
             }
           },
-          
-          // Simplified image tool - URL only
           image: {
             class: Image,
             config: {
-              captionPlaceholder: 'Enter image caption',
-              buttonContent: 'Select an image',
               uploader: {
-                // Only support URL-based images
                 uploadByUrl: async (url) => {
                   try {
-                    // Basic URL validation
                     new URL(url);
-                    
-                    // Check if URL looks like an image
-                    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'];
-                    const hasImageExtension = imageExtensions.some(ext => 
-                      url.toLowerCase().includes(ext)
-                    );
-                    
-                    // Allow common image hosting domains even without extension
-                    const imageDomains = [
-                      'imgur.com', 'i.imgur.com',
-                      'unsplash.com', 'images.unsplash.com',
-                      'pixabay.com', 'cdn.pixabay.com',
-                      'pexels.com', 'images.pexels.com',
-                      'githubusercontent.com', 'raw.githubusercontent.com',
-                      'cloudinary.com', 'res.cloudinary.com',
-                      'amazonaws.com', 's3.amazonaws.com',
-                      'googleusercontent.com',
-                      'cdn.jsdelivr.net',
-                      'cdnjs.cloudflare.com'
-                    ];
-                    
-                    const isFromImageDomain = imageDomains.some(domain => 
-                      url.includes(domain)
-                    );
-                    
-                    if (!hasImageExtension && !isFromImageDomain) {
-                      throw new Error('URL does not appear to be an image. Please use a direct image URL or a URL from a known image hosting service.');
-                    }
-                    
                     return {
                       success: 1,
-                      file: {
-                        url: url
-                      }
+                      file: { url }
                     };
-                  } catch (error) {
-                    console.error('URL validation error:', error);
+                  } catch {
                     return {
                       success: 0,
-                      error: error.message || 'Invalid image URL'
+                      error: 'Invalid URL'
                     };
                   }
                 }
@@ -238,267 +250,222 @@ const EditorJSComponent = forwardRef(({
             }
           }
         },
-        
-        // Initial data
-        data: data || {
-          time: Date.now(),
-          blocks: [],
-          version: "2.28.2"
-        },
-        
-        // Handle changes
-        onChange: async (api, event) => {
-          if (onChange && !readOnly) {
-            try {
-              const data = await api.saver.save();
-              onChange(data);
-            } catch (error) {
-              console.error('Error on change:', error);
-            }
-          }
-        },
-        
-        // Additional configuration
-        autofocus: false,
-        hideToolbar: false,
-        
-        // i18n configuration
-        i18n: {
-          messages: {
-            ui: {
-              "blockTunes": {
-                "toggler": {
-                  "Click to tune": "Click to tune",
-                  "or drag to move": "or drag to move"
-                }
-              },
-              "inlineToolbar": {
-                "converter": {
-                  "Convert to": "Convert to"
-                }
-              },
-              "toolbar": {
-                "toolbox": {
-                  "Add": "Add"
-                }
-              }
-            },
-            "toolNames": {
-              "Text": "Text",
-              "Heading": "Heading",
-              "List": "List",
-              "Warning": "Warning",
-              "Checklist": "Checklist",
-              "Quote": "Quote",
-              "Code": "Code",
-              "Delimiter": "Delimiter",
-              "Raw HTML": "Raw HTML",
-              "Table": "Table",
-              "Link": "Link",
-              "Marker": "Marker",
-              "Bold": "Bold",
-              "Italic": "Italic",
-              "InlineCode": "Inline Code",
-              "Image": "Image"
-            },
-            "tools": {
-              "image": {
-                "Caption": "Caption",
-                "Select an Image": "Select an Image",
-                "With border": "With border",
-                "Stretch image": "Stretch image",
-                "With background": "With background"
-              }
-            }
-          }
-        }
+        onChange: handleChange
       };
 
-      editorInstanceRef.current = new EditorJS(editorConfig);
+      const editor = new EditorJS(editorConfig);
+      editorInstance.current = editor;
       isInitialized.current = true;
 
-      // Handle ready state
-      editorInstanceRef.current.isReady
-        .then(() => {
-          console.log('EditorJS is ready to work!');
-        })
-        .catch((reason) => {
-          console.error('EditorJS initialization failed:', reason);
-        });
+      // Wait for editor to be ready and set the ready flag
+      try {
+        await editor.isReady;
+        isReady.current = true;
+        if (process.env.NODE_ENV === 'development') {
+          console.log('✅ Editor ready!');
+        }
+      } catch (readyError) {
+        console.error('❌ Editor ready failed:', readyError);
+        isReady.current = false;
+        // Clean up on failed ready
+        editorInstance.current = null;
+        isInitialized.current = false;
+      }
 
     } catch (error) {
-      console.error('Error initializing EditorJS:', error);
+      console.error('❌ Editor init error:', error);
+      isInitialized.current = false;
+      isReady.current = false;
+      editorInstance.current = null;
+      
+      // Clean up the holder element on failed init
+      if (editorRef.current) {
+        editorRef.current.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">Editor failed to initialize. Please refresh the page.</div>';
+      }
+    }
+  };
+
+  const destroyEditor = async () => {
+    // Clear any pending timeouts
+    if (changeTimeout.current) {
+      clearTimeout(changeTimeout.current);
+    }
+
+    if (editorInstance.current) {
+      try {
+        // Wait for editor to be ready before attempting to destroy
+        if (isReady.current && typeof editorInstance.current.destroy === 'function') {
+          await editorInstance.current.destroy();
+          if (process.env.NODE_ENV === 'development') {
+            console.log('🗑️ Editor destroyed successfully');
+          }
+        } else if (editorInstance.current.isReady) {
+          // Try waiting for the editor to be ready
+          try {
+            await editorInstance.current.isReady;
+            if (typeof editorInstance.current.destroy === 'function') {
+              await editorInstance.current.destroy();
+              if (process.env.NODE_ENV === 'development') {
+                console.log('🗑️ Editor destroyed after waiting for ready');
+              }
+            }
+          } catch (destroyError) {
+            if (process.env.NODE_ENV === 'development') {
+              console.log('🗑️ Editor destroy failed, clearing manually');
+            }
+          }
+        } else {
+          if (process.env.NODE_ENV === 'development') {
+            console.log('🗑️ Editor not ready or destroy method unavailable, clearing reference');
+          }
+        }
+      } catch (error) {
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('⚠️ Error destroying editor:', error);
+        }
+      } finally {
+        editorInstance.current = null;
+        isInitialized.current = false;
+        isReady.current = false;
+      }
+    }
+
+    // Aggressive DOM cleanup to prevent duplicates
+    if (editorRef.current) {
+      // Remove all child elements
+      while (editorRef.current.firstChild) {
+        editorRef.current.removeChild(editorRef.current.firstChild);
+      }
+      
+      // Reset all attributes and classes
+      editorRef.current.className = 'editor-holder';
+      editorRef.current.removeAttribute('style');
+      editorRef.current.innerHTML = '';
+      
+      // Remove any EditorJS specific attributes
+      const editorElement = editorRef.current.querySelector('[data-empty="true"]');
+      if (editorElement) {
+        editorElement.remove();
+      }
     }
   };
 
   return (
-    <div className={`editorjs-container ${className}`}>
+    <div className={`editor-container ${className}`}>
+      {!readOnly && (
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="text-xs text-blue-600">
+            💡 Click the <strong>+</strong> button to add content blocks
+          </div>
+        </div>
+      )}
+      
       <div 
         ref={editorRef}
-        className="editorjs-editor"
+        id={editorId.current}
+        className="editor-holder"
         style={{
-          minHeight: '200px',
-          border: '1px solid #e5e7eb',
-          borderRadius: '0.375rem',
-          padding: '1rem'
+          minHeight: readOnly ? 'auto' : '300px',
+          border: readOnly ? 'none' : '2px solid #e5e7eb',
+          borderRadius: '8px',
+          padding: readOnly ? '0' : '20px',
+          backgroundColor: readOnly ? 'transparent' : 'white'
         }}
       />
       
-      <style jsx>{`
-        .editorjs-editor {
-          background-color: white;
+      <style>{`
+        .editor-container {
+          position: relative;
         }
         
-        .editorjs-editor .codex-editor__redactor {
-          padding-bottom: 50px !important;
+        .editor-holder {
+          position: relative;
         }
         
-        .editorjs-editor .ce-block__content,
-        .editorjs-editor .ce-toolbar__content {
-          max-width: none;
+        /* Ensure only one editor instance is visible */
+        .editor-holder .codex-editor {
+          position: relative;
         }
         
-        .editorjs-editor .ce-toolbox {
-          color: #374151;
+        /* Hide duplicate editor instances */
+        .editor-holder .codex-editor:not(:first-child) {
+          display: none !important;
         }
         
-        .editorjs-editor .ce-toolbar__plus {
-          color: #059669;
+        .editor-container .ce-toolbar__plus {
+          color: #059669 !important;
+          background: #f0fdf4 !important;
+          border-radius: 6px !important;
         }
         
-        .editorjs-editor .ce-toolbar__settings-btn {
-          color: #059669;
+        .editor-container .ce-toolbar__plus:hover {
+          background: #059669 !important;
+          color: white !important;
         }
         
-        .editorjs-editor .ce-inline-toolbar {
-          color: #374151;
+        .editor-container .ce-paragraph {
+          line-height: 1.7;
+          font-size: 16px;
         }
         
-        .editorjs-editor .ce-conversion-toolbar {
-          color: #374151;
-        }
-        
-        /* Code block styling */
-        .editorjs-editor .ce-code__textarea {
-          background-color: #f3f4f6;
-          border: 1px solid #d1d5db;
-          border-radius: 0.375rem;
-          font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        .editor-container .ce-code__textarea {
+          background: #f8fafc;
+          border: 2px solid #e2e8f0;
+          border-radius: 8px;
+          font-family: Monaco, monospace;
           font-size: 14px;
-          line-height: 1.5;
+          padding: 16px;
         }
         
-        /* Quote styling */
-        .editorjs-editor .cdx-quote {
+        .editor-container .cdx-quote {
           border-left: 4px solid #059669;
-          padding-left: 1rem;
-          margin: 1rem 0;
-          background-color: #f0fdf4;
+          background: #f0fdf4;
+          padding: 20px;
+          margin: 20px 0;
+          border-radius: 8px;
         }
         
-        /* Warning block styling */
-        .editorjs-editor .cdx-warning {
-          background-color: #fef3c7;
-          border-left: 4px solid #f59e0b;
-          padding: 1rem;
-          border-radius: 0.375rem;
+        .editor-container .cdx-warning {
+          background: #fef3c7;
+          border: 2px solid #f59e0b;
+          padding: 20px;
+          margin: 20px 0;
+          border-radius: 8px;
         }
         
-        /* Header styling */
-        .editorjs-editor h2.ce-header {
-          font-size: 1.875rem;
+        .editor-container h2.ce-header {
+          font-size: 2rem;
           font-weight: 700;
-          margin: 1rem 0 0.5rem 0;
+          margin: 30px 0 15px 0;
+          color: #1f2937;
         }
         
-        .editorjs-editor h3.ce-header {
+        .editor-container h3.ce-header {
           font-size: 1.5rem;
           font-weight: 600;
-          margin: 1rem 0 0.5rem 0;
+          margin: 25px 0 12px 0;
+          color: #374151;
         }
         
-        .editorjs-editor h4.ce-header {
+        .editor-container h4.ce-header {
           font-size: 1.25rem;
           font-weight: 500;
-          margin: 1rem 0 0.5rem 0;
+          margin: 20px 0 10px 0;
+          color: #4b5563;
         }
         
-        /* List styling */
-        .editorjs-editor .cdx-list {
-          margin: 0.5rem 0;
-        }
-        
-        .editorjs-editor .cdx-list__item {
-          line-height: 1.6;
-          margin: 0.25rem 0;
-        }
-        
-        /* Table styling */
-        .editorjs-editor .tc-table {
-          border-collapse: collapse;
-          width: 100%;
-          margin: 1rem 0;
-        }
-        
-        .editorjs-editor .tc-table td {
-          border: 1px solid #d1d5db;
-          padding: 0.5rem;
-        }
-        
-        /* Image styling */
-        .editorjs-editor .image-tool {
-          margin: 1rem 0;
-        }
-        
-        .editorjs-editor .image-tool__image {
-          border-radius: 0.375rem;
+        .editor-container .image-tool__image {
           max-width: 100%;
-          height: auto;
+          border-radius: 8px;
+          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
         
-        .editorjs-editor .image-tool__caption {
-          margin-top: 0.5rem;
+        .editor-container .image-tool__caption {
           text-align: center;
           font-style: italic;
           color: #6b7280;
-          font-size: 0.875rem;
-        }
-        
-        /* Embed styling */
-        .editorjs-editor .embed-tool {
-          margin: 1rem 0;
-        }
-        
-        .editorjs-editor .embed-tool__caption {
-          margin-top: 0.5rem;
-          text-align: center;
-          font-style: italic;
-          color: #6b7280;
-          font-size: 0.875rem;
-        }
-        
-        /* Image URL input styling */
-        .editorjs-editor .image-tool__url-input {
-          width: 100%;
-          padding: 0.5rem;
-          border: 1px solid #d1d5db;
-          border-radius: 0.375rem;
+          margin-top: 10px;
           font-size: 14px;
-          margin-bottom: 0.5rem;
-        }
-        
-        .editorjs-editor .image-tool__url-button {
-          background-color: #059669;
-          color: white;
-          border: none;
-          padding: 0.5rem 1rem;
-          border-radius: 0.375rem;
-          cursor: pointer;
-          font-size: 14px;
-        }
-        
-        .editorjs-editor .image-tool__url-button:hover {
-          background-color: #047857;
         }
       `}</style>
     </div>
