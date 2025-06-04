@@ -1,7 +1,10 @@
 // src/pages/admin/LessonManagement.jsx
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Plus, Edit, Trash2, Search, Filter, ChevronDown, FileText, ExternalLink, AlertCircle, X } from 'lucide-react';
+import { 
+  Plus, Edit, Trash2, Search, Filter, ChevronDown, FileText, 
+  ExternalLink, AlertCircle, X, Copy, Eye, Download 
+} from 'lucide-react';
 import { lessonAPI, tutorialAPI } from '../../services/api';
 
 const LessonManagement = () => {
@@ -14,6 +17,11 @@ const LessonManagement = () => {
   const [lessonToDelete, setLessonToDelete] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    pages: 1,
+    total: 0
+  });
   
   const navigate = useNavigate();
   const location = useLocation();
@@ -32,35 +40,46 @@ const LessonManagement = () => {
     }
   }, [tutorialIdFromQuery]);
   
-  // Load lessons when a tutorial is selected
+  // Load lessons when filters change
   useEffect(() => {
-    if (selectedTutorial) {
-      fetchLessons(selectedTutorial);
-    } else {
-      setLessons([]);
-    }
-  }, [selectedTutorial]);
+    fetchLessons();
+  }, [selectedTutorial, searchQuery, pagination.page]);
   
   const fetchTutorials = async () => {
     try {
-      setIsLoading(true);
       const response = await tutorialAPI.getAll();
-      setTutorials(response.data.tutorials || response.data); // Handle different response formats
+      setTutorials(response.data.tutorials || response.data || []);
     } catch (err) {
       console.error('Error fetching tutorials:', err);
       setError('Failed to load tutorials. Please try again.');
-    } finally {
-      setIsLoading(false);
     }
   };
   
-  const fetchLessons = async (tutorialId) => {
+  const fetchLessons = async () => {
     try {
       setIsLoading(true);
       setError(null);
       
-      const response = await lessonAPI.getByTutorial(tutorialId);
-      setLessons(response.data);
+      // If a specific tutorial is selected, fetch lessons for that tutorial
+      if (selectedTutorial) {
+        const response = await lessonAPI.getByTutorial(selectedTutorial);
+        setLessons(response.data || response || []);
+        setPagination({ page: 1, pages: 1, total: response.length || 0 });
+      } else {
+        // Otherwise, fetch all lessons with pagination
+        const params = {
+          page: pagination.page,
+          limit: 10
+        };
+        
+        if (searchQuery.trim()) {
+          params.search = searchQuery.trim();
+        }
+        
+        const response = await lessonAPI.getAll(params);
+        setLessons(response.lessons || []);
+        setPagination(response.pagination || { page: 1, pages: 1, total: 0 });
+      }
     } catch (err) {
       console.error('Error fetching lessons:', err);
       setError('Failed to load lessons. Please try again.');
@@ -70,12 +89,30 @@ const LessonManagement = () => {
     }
   };
   
-  // Filter lessons based on search
-  const filteredLessons = lessons.filter(lesson => {
-    if (!searchQuery) return true;
+  // Handle tutorial filter change
+  const handleTutorialChange = (tutorialId) => {
+    setSelectedTutorial(tutorialId);
+    setShowFilterMenu(false);
+    setPagination({ ...pagination, page: 1 });
     
-    return lesson.title.toLowerCase().includes(searchQuery.toLowerCase());
-  });
+    // Update URL
+    const newUrl = new URL(window.location);
+    if (tutorialId) {
+      newUrl.searchParams.set('tutorialId', tutorialId);
+    } else {
+      newUrl.searchParams.delete('tutorialId');
+    }
+    window.history.pushState({}, '', newUrl);
+  };
+  
+  // Handle search with debounce
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setPagination({ ...pagination, page: 1 });
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery]);
   
   // Handle delete confirmation
   const confirmDelete = (lesson) => {
@@ -89,8 +126,8 @@ const LessonManagement = () => {
       setIsLoading(true);
       await lessonAPI.delete(lessonToDelete._id);
       
-      // Remove from local state
-      setLessons(lessons.filter(l => l._id !== lessonToDelete._id));
+      // Refresh lessons
+      await fetchLessons();
       setShowDeleteModal(false);
       setLessonToDelete(null);
     } catch (err) {
@@ -99,6 +136,56 @@ const LessonManagement = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+  
+  // Handle duplicate lesson
+  const duplicateLesson = async (lesson) => {
+    try {
+      setIsLoading(true);
+      await lessonAPI.duplicate(lesson._id);
+      
+      // Refresh lessons
+      await fetchLessons();
+    } catch (err) {
+      console.error('Error duplicating lesson:', err);
+      alert('Failed to duplicate lesson. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // Handle export lesson
+  const exportLesson = async (lesson, format) => {
+    try {
+      const content = await lessonAPI.export(lesson._id, format);
+      
+      const blob = new Blob([format === 'json' ? JSON.stringify(content, null, 2) : content], {
+        type: format === 'json' ? 'application/json' : format === 'html' ? 'text/html' : 'text/plain'
+      });
+      
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${lesson.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Error exporting lesson:', err);
+      alert('Failed to export lesson. Please try again.');
+    }
+  };
+  
+  // Handle page change
+  const handlePageChange = (newPage) => {
+    setPagination({ ...pagination, page: newPage });
+  };
+  
+  // Get tutorial name by ID
+  const getTutorialName = (tutorialId) => {
+    const tutorial = tutorials.find(t => t._id === tutorialId);
+    return tutorial ? tutorial.title : 'Unknown Tutorial';
   };
 
   return (
@@ -133,27 +220,30 @@ const LessonManagement = () => {
             className="px-4 py-2 border rounded-md bg-white flex items-center gap-2 w-full sm:w-auto"
           >
             <Filter size={18} />
-            <span>{selectedTutorial ? (tutorials.find(t => t._id === selectedTutorial)?.title || 'Select Tutorial') : 'Select Tutorial'}</span>
+            <span>
+              {selectedTutorial 
+                ? getTutorialName(selectedTutorial)
+                : 'All Tutorials'
+              }
+            </span>
             <ChevronDown size={16} className={`ml-auto sm:ml-2 transition-transform ${showFilterMenu ? 'rotate-180' : ''}`} />
           </button>
           
           {showFilterMenu && (
             <div className="absolute z-10 mt-1 w-full sm:w-80 bg-white border rounded-md shadow-lg">
               <div className="p-2 max-h-60 overflow-y-auto">
+                <div 
+                  className={`px-3 py-2 rounded-md cursor-pointer ${!selectedTutorial ? 'bg-emerald-100 text-emerald-800' : 'hover:bg-gray-100'}`}
+                  onClick={() => handleTutorialChange('')}
+                >
+                  All Tutorials
+                </div>
                 {tutorials.length > 0 ? (
                   tutorials.map(tutorial => (
                     <div 
                       key={tutorial._id}
                       className={`px-3 py-2 rounded-md cursor-pointer ${selectedTutorial === tutorial._id ? 'bg-emerald-100 text-emerald-800' : 'hover:bg-gray-100'}`}
-                      onClick={() => {
-                        setSelectedTutorial(tutorial._id);
-                        setShowFilterMenu(false);
-                        
-                        // Update URL with selected tutorial ID without page reload
-                        const newUrl = new URL(window.location);
-                        newUrl.searchParams.set('tutorialId', tutorial._id);
-                        window.history.pushState({}, '', newUrl);
-                      }}
+                      onClick={() => handleTutorialChange(tutorial._id)}
                     >
                       {tutorial.title}
                     </div>
@@ -173,7 +263,6 @@ const LessonManagement = () => {
             className="w-full py-2 pl-10 pr-4 border rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            disabled={!selectedTutorial}
           />
           <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
           {searchQuery && (
@@ -195,127 +284,207 @@ const LessonManagement = () => {
         </div>
       )}
       
-      {/* Tutorial Selection Prompt */}
-      {!selectedTutorial && !isLoading && (
-        <div className="bg-yellow-50 text-yellow-800 p-4 rounded-md mb-6">
-          <p className="font-medium">Please select a tutorial to view or add lessons.</p>
-        </div>
-      )}
-      
       {/* Loading State */}
       {isLoading ? (
         <div className="text-center py-8">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-emerald-600"></div>
-          <p className="mt-2 text-gray-500">Loading...</p>
+          <p className="mt-2 text-gray-500">Loading lessons...</p>
         </div>
-      ) : selectedTutorial && filteredLessons.length === 0 ? (
+      ) : lessons.length === 0 ? (
         <div className="bg-white p-8 rounded-md text-center">
           <FileText size={48} className="mx-auto text-gray-300 mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-1">No lessons found</h3>
           <p className="text-gray-500 mb-4">
             {searchQuery 
               ? "No lessons match your search criteria." 
-              : "This tutorial doesn't have any lessons yet."}
+              : selectedTutorial
+                ? "This tutorial doesn't have any lessons yet."
+                : "No lessons available."}
           </p>
-          <Link
-            to={`/admin/lessons/new?tutorialId=${selectedTutorial}`}
-            className="inline-flex items-center px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700"
-          >
-            <Plus size={16} className="mr-1" />
-            Add First Lesson
-          </Link>
+          {selectedTutorial && (
+            <Link
+              to={`/admin/lessons/new?tutorialId=${selectedTutorial}`}
+              className="inline-flex items-center px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700"
+            >
+              <Plus size={16} className="mr-1" />
+              Add First Lesson
+            </Link>
+          )}
         </div>
       ) : (
         /* Lessons Table */
-        selectedTutorial && (
-          <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Order
+        <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Order
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Lesson Title
+                </th>
+                {!selectedTutorial && (
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">
+                    Tutorial
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Lesson Title
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
-                    Content Blocks
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredLessons.map(lesson => (
-                  <tr key={lesson._id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      {lesson.order}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center">
-                        <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
-                          <FileText size={20} />
-                        </div>
-                        <div className="ml-3">
-                          <div className="text-sm font-medium text-gray-900">{lesson.title}</div>
-                          <div className="text-xs text-gray-500">{lesson.duration} min</div>
+                )}
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
+                  Duration
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Status
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {lessons.map(lesson => (
+                <tr key={lesson._id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    #{lesson.order}
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center">
+                      <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
+                        <FileText size={20} />
+                      </div>
+                      <div className="ml-3">
+                        <div className="text-sm font-medium text-gray-900">{lesson.title}</div>
+                        <div className="text-xs text-gray-500">
+                          Created: {new Date(lesson.createdAt).toLocaleDateString()}
                         </div>
                       </div>
-                    </td>
-                    <td className="px-6 py-4 hidden md:table-cell">
+                    </div>
+                  </td>
+                  {!selectedTutorial && (
+                    <td className="px-6 py-4 hidden lg:table-cell">
                       <div className="text-sm text-gray-500">
-                        {lesson.content?.length || 0} content blocks
+                        {lesson.tutorial?.title || getTutorialName(lesson.tutorial) || 'Unknown'}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {lesson.isPublished ? (
-                        <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                          Published
-                        </span>
-                      ) : (
-                        <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
-                          Draft
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <div className="flex justify-end gap-2">
-                        <Link
-                          to={`/tutorials/${selectedTutorial}/${lesson.slug || lesson._id}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-gray-600 hover:text-gray-900"
-                          title="Preview"
-                        >
-                          <ExternalLink size={18} />
-                        </Link>
-                        <Link 
-                          to={`/admin/lessons/edit/${lesson._id}`}
-                          className="text-blue-600 hover:text-blue-900"
-                          title="Edit"
-                        >
-                          <Edit size={18} />
-                        </Link>
-                        <button 
-                          onClick={() => confirmDelete(lesson)}
-                          className="text-red-600 hover:text-red-900"
-                          disabled={isLoading}
-                          title="Delete"
-                        >
-                          <Trash2 size={18} />
+                  )}
+                  <td className="px-6 py-4 hidden md:table-cell">
+                    <div className="text-sm text-gray-500">
+                      {lesson.duration} min
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {lesson.isPublished ? (
+                      <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                        Published
+                      </span>
+                    ) : (
+                      <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                        Draft
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <div className="flex justify-end gap-1">
+                      {/* Preview */}
+                      <Link
+                        to={`/tutorials/${lesson.tutorial?._id || lesson.tutorial}/${lesson.slug || lesson._id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-1 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded"
+                        title="Preview"
+                      >
+                        <Eye size={16} />
+                      </Link>
+                      
+                      {/* Edit */}
+                      <Link 
+                        to={`/admin/lessons/edit/${lesson._id}`}
+                        className="p-1 text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded"
+                        title="Edit"
+                      >
+                        <Edit size={16} />
+                      </Link>
+                      
+                      {/* Duplicate */}
+                      <button 
+                        onClick={() => duplicateLesson(lesson)}
+                        className="p-1 text-green-600 hover:text-green-900 hover:bg-green-50 rounded"
+                        disabled={isLoading}
+                        title="Duplicate"
+                      >
+                        <Copy size={16} />
+                      </button>
+                      
+                      {/* Export dropdown */}
+                      <div className="relative group">
+                        <button className="p-1 text-purple-600 hover:text-purple-900 hover:bg-purple-50 rounded">
+                          <Download size={16} />
                         </button>
+                        <div className="absolute right-0 mt-1 w-32 bg-white rounded-md shadow-lg z-10 hidden group-hover:block">
+                          <div className="py-1">
+                            <button 
+                              onClick={() => exportLesson(lesson, 'json')}
+                              className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                            >
+                              Export JSON
+                            </button>
+                            <button 
+                              onClick={() => exportLesson(lesson, 'html')}
+                              className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                            >
+                              Export HTML
+                            </button>
+                            <button 
+                              onClick={() => exportLesson(lesson, 'text')}
+                              className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                            >
+                              Export Text
+                            </button>
+                          </div>
+                        </div>
                       </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )
+                      
+                      {/* Delete */}
+                      <button 
+                        onClick={() => confirmDelete(lesson)}
+                        className="p-1 text-red-600 hover:text-red-900 hover:bg-red-50 rounded"
+                        disabled={isLoading}
+                        title="Delete"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          
+          {/* Pagination */}
+          {!selectedTutorial && pagination.pages > 1 && (
+            <div className="px-6 py-3 bg-gray-50 border-t border-gray-200">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-gray-700">
+                  Showing page {pagination.page} of {pagination.pages} ({pagination.total} total)
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handlePageChange(pagination.page - 1)}
+                    disabled={pagination.page <= 1}
+                    className="px-3 py-1 border rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    onClick={() => handlePageChange(pagination.page + 1)}
+                    disabled={pagination.page >= pagination.pages}
+                    className="px-3 py-1 border rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       )}
       
       {/* Delete Confirmation Modal */}

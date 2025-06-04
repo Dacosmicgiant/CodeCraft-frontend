@@ -79,16 +79,6 @@ export const tutorialAPI = {
   delete: (id) => api.delete(`/tutorials/${id}`),
 };
 
-// Lesson API calls
-export const lessonAPI = {
-  getByTutorial: (tutorialId) => api.get(`/tutorials/${tutorialId}/lessons`),
-  getById: (id) => api.get(`/lessons/${id}`),
-  create: (tutorialId, data) => api.post(`/tutorials/${tutorialId}/lessons`, data),
-  update: (id, data) => api.put(`/lessons/${id}`, data),
-  updateContent: (id, content) => api.put(`/lessons/${id}/content`, { content }),
-  delete: (id) => api.delete(`/lessons/${id}`),
-};
-
 // User API calls - matches your backend
 export const userAPI = {
   updateProfile: (data) => api.put('/users/profile', data),
@@ -107,4 +97,305 @@ export const exercisesAPI = {
   submit: (id, solution) => api.post(`/exercises/${id}/submit`, { solution }),
 };
 
+// src/services/api.js (complete lesson API functions)
+
+// Add these functions to your existing API service file
+
+export const lessonAPI = {
+  // Create lesson with EditorJS content
+  create: async (tutorialId, lessonData) => {
+    try {
+      const response = await fetch(`/api/v1/tutorials/${tutorialId}/lessons`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(lessonData)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to create lesson');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Create lesson error:', error);
+      throw error;
+    }
+  },
+
+  // Get all lessons (admin) with pagination and filters
+  getAll: async (params = {}) => {
+    try {
+      const queryParams = new URLSearchParams(params);
+      const response = await fetch(`/api/v1/lessons?${queryParams}`, {
+        method: 'GET',
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to fetch lessons');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Get all lessons error:', error);
+      throw error;
+    }
+  },
+
+  // Get lesson by ID
+  getById: async (id) => {
+    try {
+      const response = await fetch(`/api/v1/lessons/${id}`, {
+        method: 'GET',
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to fetch lesson');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Get lesson error:', error);
+      throw error;
+    }
+  },
+
+  // Get lessons by tutorial
+  getByTutorial: async (tutorialId) => {
+    try {
+      const response = await fetch(`/api/v1/tutorials/${tutorialId}/lessons`, {
+        method: 'GET',
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to fetch lessons');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Get lessons error:', error);
+      throw error;
+    }
+  },
+
+  // Update lesson
+  update: async (id, lessonData) => {
+    try {
+      const response = await fetch(`/api/v1/lessons/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(lessonData)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update lesson');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Update lesson error:', error);
+      throw error;
+    }
+  },
+
+  // Update lesson content only
+  updateContent: async (id, content) => {
+    try {
+      const response = await fetch(`/api/v1/lessons/${id}/content`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ content })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update lesson content');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Update lesson content error:', error);
+      throw error;
+    }
+  },
+
+  // Delete lesson
+  delete: async (id) => {
+    try {
+      const response = await fetch(`/api/v1/lessons/${id}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to delete lesson');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Delete lesson error:', error);
+      throw error;
+    }
+  },
+
+  // Reorder lessons
+  reorder: async (lessons) => {
+    try {
+      const response = await fetch('/api/v1/lessons/reorder', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ lessons })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to reorder lessons');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Reorder lessons error:', error);
+      throw error;
+    }
+  },
+
+  // Duplicate lesson
+  duplicate: async (id) => {
+    try {
+      const response = await fetch(`/api/v1/lessons/${id}/duplicate`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to duplicate lesson');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Duplicate lesson error:', error);
+      throw error;
+    }
+  },
+
+  // Bulk update lessons
+  bulkUpdate: async (lessonIds, update) => {
+    try {
+      const response = await fetch('/api/v1/lessons/bulk', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ lessonIds, update })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to bulk update lessons');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Bulk update lessons error:', error);
+      throw error;
+    }
+  },
+
+  // Export lesson content
+  export: async (id, format = 'json') => {
+    try {
+      // Use the new simplified endpoint URLs
+      const endpoint = format === 'json' ? 'export-json' : 
+                     format === 'html' ? 'export-html' : 'export-text';
+      
+      const response = await fetch(`/api/v1/lessons/${id}/${endpoint}`, {
+        method: 'GET',
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to export lesson');
+      }
+
+      if (format === 'json') {
+        return await response.json();
+      } else {
+        return await response.text();
+      }
+    } catch (error) {
+      console.error('Export lesson error:', error);
+      throw error;
+    }
+  }
+};
+
+// Helper function to validate image URLs (optional, for client-side validation)
+export const validateImageUrl = (url) => {
+  try {
+    new URL(url);
+    
+    // Check for image file extensions
+    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'];
+    const hasImageExtension = imageExtensions.some(ext => 
+      url.toLowerCase().includes(ext)
+    );
+    
+    // Check for known image hosting domains
+    const imageDomains = [
+      'imgur.com', 'i.imgur.com',
+      'unsplash.com', 'images.unsplash.com',
+      'pixabay.com', 'cdn.pixabay.com',
+      'pexels.com', 'images.pexels.com',
+      'githubusercontent.com', 'raw.githubusercontent.com',
+      'cloudinary.com', 'res.cloudinary.com',
+      'amazonaws.com', 's3.amazonaws.com',
+      'googleusercontent.com',
+      'cdn.jsdelivr.net',
+      'cdnjs.cloudflare.com'
+    ];
+    
+    const isFromImageDomain = imageDomains.some(domain => 
+      url.includes(domain)
+    );
+    
+    return {
+      isValid: hasImageExtension || isFromImageDomain,
+      hasExtension: hasImageExtension,
+      isFromTrustedDomain: isFromImageDomain,
+      message: hasImageExtension || isFromImageDomain 
+        ? 'Valid image URL' 
+        : 'URL should point to an image file or be from a trusted image hosting service'
+    };
+  } catch (error) {
+    return {
+      isValid: false,
+      hasExtension: false,
+      isFromTrustedDomain: false,
+      message: 'Invalid URL format'
+    };
+  }
+};
 export default api;

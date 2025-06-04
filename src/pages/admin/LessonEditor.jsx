@@ -1,314 +1,11 @@
+// src/pages/admin/LessonEditor.jsx
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { 
-  ArrowLeft, Save, Plus, Trash2, Youtube, Code, 
-  FileText, Image, ExternalLink, AlertCircle, Check, 
-  ArrowUp, ArrowDown, GripVertical, Bold, Italic, 
-  Underline, AlignLeft, AlignCenter, AlignRight, List,
-  ListOrdered
+  ArrowLeft, Save, AlertCircle, Check, Eye, FileText 
 } from 'lucide-react';
 import { lessonAPI, tutorialAPI } from '../../services/api';
-
-// Rich Text Editor Component
-const RichTextEditor = ({ value, onChange, placeholder }) => {
-  const editorRef = useRef(null);
-  const [isInitialized, setIsInitialized] = useState(false);
-  
-  useEffect(() => {
-    if (editorRef.current && !isInitialized) {
-      editorRef.current.innerHTML = value || '';
-      setIsInitialized(true);
-    }
-  }, [value, isInitialized]);
-  
-  const execCommand = (command, commandValue = null) => {
-    editorRef.current.focus();
-    
-    if (command === 'formatBlock') {
-      // Handle heading formatting differently
-      const selection = window.getSelection();
-      if (selection.rangeCount > 0) {
-        document.execCommand('formatBlock', false, `<${commandValue}>`);
-      }
-    } else if (command === 'insertUnorderedList' || command === 'insertOrderedList') {
-      // Handle lists with better formatting
-      document.execCommand(command, false, null);
-      // Ensure proper styling after list creation
-      setTimeout(() => {
-        const lists = editorRef.current.querySelectorAll('ul, ol');
-        lists.forEach(list => {
-          if (list.tagName === 'UL') {
-            list.style.listStyleType = 'disc';
-            list.style.paddingLeft = '2rem';
-            list.style.margin = '0.5rem 0';
-          } else if (list.tagName === 'OL') {
-            list.style.listStyleType = 'decimal';
-            list.style.paddingLeft = '2rem';
-            list.style.margin = '0.5rem 0';
-          }
-          
-          // Style list items
-          const items = list.querySelectorAll('li');
-          items.forEach(item => {
-            item.style.display = 'list-item';
-            item.style.margin = '0.2rem 0';
-            if (list.tagName === 'UL') {
-              item.style.listStyleType = 'disc';
-            } else if (list.tagName === 'OL') {
-              item.style.listStyleType = 'decimal';
-            }
-          });
-        });
-      }, 10);
-    } else {
-      document.execCommand(command, false, commandValue);
-    }
-    
-    handleChange();
-  };
-  
-  const handleChange = () => {
-    if (editorRef.current && onChange) {
-      onChange(editorRef.current.innerHTML);
-    }
-  };
-  
-  const handleInput = (e) => {
-    handleChange();
-  };
-  
-  const handleKeyDown = (e) => {
-    // Prevent default behavior for some formatting shortcuts
-    if (e.ctrlKey || e.metaKey) {
-      switch (e.key) {
-        case 'b':
-          e.preventDefault();
-          execCommand('bold');
-          break;
-        case 'i':
-          e.preventDefault();
-          execCommand('italic');
-          break;
-        case 'u':
-          e.preventDefault();
-          execCommand('underline');
-          break;
-      }
-    }
-  };
-  
-  const isCommandActive = (command) => {
-    try {
-      return document.queryCommandState(command);
-    } catch (e) {
-      return false;
-    }
-  };
-  
-  return (
-    <div className="border border-gray-300 rounded-md focus-within:ring-2 focus-within:ring-emerald-500 focus-within:border-emerald-500">
-      {/* Toolbar */}
-      <div className="border-b border-gray-200 p-2 flex flex-wrap gap-1">
-        {/* Text Formatting */}
-        <button
-          type="button"
-          onClick={() => execCommand('bold')}
-          className={`p-2 rounded-md hover:bg-gray-100 ${isCommandActive('bold') ? 'bg-gray-200' : ''}`}
-          title="Bold (Ctrl+B)"
-        >
-          <Bold size={16} />
-        </button>
-        <button
-          type="button"
-          onClick={() => execCommand('italic')}
-          className={`p-2 rounded-md hover:bg-gray-100 ${isCommandActive('italic') ? 'bg-gray-200' : ''}`}
-          title="Italic (Ctrl+I)"
-        >
-          <Italic size={16} />
-        </button>
-        <button
-          type="button"
-          onClick={() => execCommand('underline')}
-          className={`p-2 rounded-md hover:bg-gray-100 ${isCommandActive('underline') ? 'bg-gray-200' : ''}`}
-          title="Underline (Ctrl+U)"
-        >
-          <Underline size={16} />
-        </button>
-        
-        <div className="border-l border-gray-300 mx-1"></div>
-        
-        {/* Alignment */}
-        <button
-          type="button"
-          onClick={() => execCommand('justifyLeft')}
-          className={`p-2 rounded-md hover:bg-gray-100 ${isCommandActive('justifyLeft') ? 'bg-gray-200' : ''}`}
-          title="Align Left"
-        >
-          <AlignLeft size={16} />
-        </button>
-        <button
-          type="button"
-          onClick={() => execCommand('justifyCenter')}
-          className={`p-2 rounded-md hover:bg-gray-100 ${isCommandActive('justifyCenter') ? 'bg-gray-200' : ''}`}
-          title="Center"
-        >
-          <AlignCenter size={16} />
-        </button>
-        <button
-          type="button"
-          onClick={() => execCommand('justifyRight')}
-          className={`p-2 rounded-md hover:bg-gray-100 ${isCommandActive('justifyRight') ? 'bg-gray-200' : ''}`}
-          title="Align Right"
-        >
-          <AlignRight size={16} />
-        </button>
-        
-        <div className="border-l border-gray-300 mx-1"></div>
-        
-        {/* Lists */}
-        <button
-          type="button"
-          onClick={() => execCommand('insertUnorderedList')}
-          className={`p-2 rounded-md hover:bg-gray-100 ${isCommandActive('insertUnorderedList') ? 'bg-gray-200' : ''}`}
-          title="Bullet List"
-        >
-          <List size={16} />
-        </button>
-        <button
-          type="button"
-          onClick={() => execCommand('insertOrderedList')}
-          className={`p-2 rounded-md hover:bg-gray-100 ${isCommandActive('insertOrderedList') ? 'bg-gray-200' : ''}`}
-          title="Numbered List"
-        >
-          <ListOrdered size={16} />
-        </button>
-        
-        <div className="border-l border-gray-300 mx-1"></div>
-        
-        {/* Heading Buttons */}
-        <button
-          type="button"
-          onClick={() => execCommand('formatBlock', 'h1')}
-          className="px-2 py-1 text-sm rounded-md hover:bg-gray-100 font-bold"
-          title="Heading 1"
-        >
-          H1
-        </button>
-        <button
-          type="button"
-          onClick={() => execCommand('formatBlock', 'h2')}
-          className="px-2 py-1 text-sm rounded-md hover:bg-gray-100 font-semibold"
-          title="Heading 2"
-        >
-          H2
-        </button>
-        <button
-          type="button"
-          onClick={() => execCommand('formatBlock', 'h3')}
-          className="px-2 py-1 text-sm rounded-md hover:bg-gray-100 font-medium"
-          title="Heading 3"
-        >
-          H3
-        </button>
-        <button
-          type="button"
-          onClick={() => execCommand('formatBlock', 'p')}
-          className="px-2 py-1 text-sm rounded-md hover:bg-gray-100"
-          title="Paragraph"
-        >
-          P
-        </button>
-      </div>
-      
-      {/* Editor */}
-      <div
-        ref={editorRef}
-        contentEditable
-        className="p-3 min-h-[120px] focus:outline-none prose prose-sm max-w-none"
-        onInput={handleInput}
-        onKeyDown={handleKeyDown}
-        suppressContentEditableWarning={true}
-        style={{
-          fontSize: '14px',
-          lineHeight: '1.5'
-        }}
-      />
-      
-      {/* Placeholder */}
-      {(!value || value.trim() === '') && (
-        <div 
-          className="absolute pointer-events-none text-gray-400 italic"
-          style={{ 
-            top: '60px', 
-            left: '15px',
-            fontSize: '14px'
-          }}
-        >
-          {placeholder}
-        </div>
-      )}
-      
-      <style jsx>{`
-        .prose h1 { 
-          font-size: 2rem; 
-          font-weight: 700; 
-          margin: 0.5rem 0;
-          line-height: 1.2;
-        }
-        .prose h2 { 
-          font-size: 1.5rem; 
-          font-weight: 600; 
-          margin: 0.4rem 0;
-          line-height: 1.3;
-        }
-        .prose h3 { 
-          font-size: 1.25rem; 
-          font-weight: 500; 
-          margin: 0.3rem 0;
-          line-height: 1.4;
-        }
-        .prose p { 
-          margin: 0.25rem 0;
-          line-height: 1.5;
-        }
-        .prose ul { 
-          margin: 0.5rem 0; 
-          padding-left: 2rem;
-          list-style-type: disc !important;
-          list-style-position: outside !important;
-        }
-        .prose ol { 
-          margin: 0.5rem 0; 
-          padding-left: 2rem;
-          list-style-type: decimal !important;
-          list-style-position: outside !important;
-        }
-        .prose li { 
-          margin: 0.2rem 0;
-          display: list-item !important;
-          line-height: 1.5;
-        }
-        .prose ul li {
-          list-style-type: disc !important;
-        }
-        .prose ol li {
-          list-style-type: decimal !important;
-        }
-        /* Ensure nested lists work */
-        .prose ul ul {
-          list-style-type: circle !important;
-          margin: 0.2rem 0;
-          padding-left: 1.5rem;
-        }
-        .prose ol ol {
-          list-style-type: lower-alpha !important;
-          margin: 0.2rem 0;
-          padding-left: 1.5rem;
-        }
-      `}</style>
-    </div>
-  );
-};
+import EditorJSComponent from '../../components/EditorJS/EditorJSComponent';
 
 const LessonEditor = () => {
   const { id } = useParams();
@@ -320,12 +17,18 @@ const LessonEditor = () => {
   const searchParams = new URLSearchParams(location.search);
   const tutorialIdFromQuery = searchParams.get('tutorialId');
   
+  const editorRef = useRef(null);
+  
   const [formData, setFormData] = useState({
     title: '',
     order: 1,
     duration: 10,
     tutorial: tutorialIdFromQuery || '',
-    content: [],
+    content: {
+      time: Date.now(),
+      blocks: [],
+      version: "2.28.2"
+    },
     isPublished: false
   });
   
@@ -335,6 +38,12 @@ const LessonEditor = () => {
   const [isTutorialsLoading, setIsTutorialsLoading] = useState(true);
   const [apiError, setApiError] = useState(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const [lastSaved, setLastSaved] = useState(null);
+  
+  // Auto-save functionality
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const autoSaveTimeoutRef = useRef(null);
   
   // Load tutorials for dropdown
   useEffect(() => {
@@ -347,6 +56,27 @@ const LessonEditor = () => {
       fetchLesson(id);
     }
   }, [isEditing, id]);
+  
+  // Auto-save logic
+  useEffect(() => {
+    if (hasUnsavedChanges && isEditing) {
+      // Clear existing timeout
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+      }
+      
+      // Set new timeout for auto-save
+      autoSaveTimeoutRef.current = setTimeout(() => {
+        handleAutoSave();
+      }, 10000); // Auto-save after 10 seconds of inactivity
+    }
+    
+    return () => {
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+      }
+    };
+  }, [hasUnsavedChanges, formData]);
   
   const fetchTutorials = async () => {
     try {
@@ -373,14 +103,26 @@ const LessonEditor = () => {
       // Safely extract tutorial ID
       const tutorialId = lesson.tutorial?._id || lesson.tutorial || '';
       
+      // Ensure content is in EditorJS format
+      let content = lesson.content;
+      if (!content || !content.blocks) {
+        content = {
+          time: Date.now(),
+          blocks: [],
+          version: "2.28.2"
+        };
+      }
+      
       setFormData({
         title: lesson.title || '',
         order: lesson.order || 1,
         duration: lesson.duration || 10,
         tutorial: tutorialId,
-        content: lesson.content || [],
+        content: content,
         isPublished: lesson.isPublished || false
       });
+      
+      setLastSaved(new Date());
     } catch (err) {
       console.error('Error fetching lesson:', err);
       if (err.response?.status === 404) {
@@ -401,6 +143,8 @@ const LessonEditor = () => {
       [name]: type === 'checkbox' ? checked : value
     }));
     
+    setHasUnsavedChanges(true);
+    
     // Clear error when user starts typing
     if (errors[name]) {
       setErrors(prev => ({
@@ -410,131 +154,38 @@ const LessonEditor = () => {
     }
   };
   
-  // Add a new content block
-  const addContentBlock = (type) => {
-    let newBlock;
-    
-    switch (type) {
-      case 'text':
-        newBlock = { 
-          type: 'text',
-          data: { html: '' }
-        };
-        break;
-      case 'code':
-        newBlock = { 
-          type: 'code',
-          data: { 
-            language: 'html',
-            code: ''
-          }
-        };
-        break;
-      case 'video':
-        newBlock = { 
-          type: 'video',
-          data: { 
-            url: '',
-            caption: ''
-          }
-        };
-        break;
-      case 'image':
-        newBlock = { 
-          type: 'image',
-          data: { 
-            url: '',
-            alt: '',
-            caption: ''
-          }
-        };
-        break;
-      case 'quiz':
-        newBlock = {
-          type: 'quiz',
-          data: {
-            question: '',
-            options: ['', '', '', ''],
-            correctAnswer: 0
-          }
-        };
-        break;
-      default:
-        return;
-    }
-    
+  // Handle content changes from EditorJS
+  const handleContentChange = (data) => {
     setFormData(prev => ({
       ...prev,
-      content: [...prev.content, newBlock]
+      content: data
     }));
+    setHasUnsavedChanges(true);
   };
   
-  // Remove a content block
-  const removeContentBlock = (index) => {
-    setFormData(prev => ({
-      ...prev,
-      content: prev.content.filter((_, i) => i !== index)
-    }));
-  };
-  
-  // Move a content block up or down
-  const moveContentBlock = (index, direction) => {
-    const newContent = [...formData.content];
+  // Auto-save function
+  const handleAutoSave = async () => {
+    if (!isEditing || !hasUnsavedChanges) return;
     
-    if (direction === 'up' && index > 0) {
-      [newContent[index], newContent[index-1]] = [newContent[index-1], newContent[index]];
-    } else if (direction === 'down' && index < newContent.length - 1) {
-      [newContent[index], newContent[index+1]] = [newContent[index+1], newContent[index]];
-    }
-    
-    setFormData(prev => ({
-      ...prev,
-      content: newContent
-    }));
-  };
-  
-  // Update content block data
-  const updateContentBlock = (index, field, value) => {
-    const newContent = [...formData.content];
-    
-    // Handle nested data fields
-    if (field.includes('.')) {
-      const [parent, child] = field.split('.');
-      if (parent === 'data') {
-        newContent[index].data = {
-          ...newContent[index].data,
-          [child]: value
+    try {
+      const editorData = await editorRef.current?.save();
+      if (editorData) {
+        const lessonData = {
+          title: formData.title.trim(),
+          order: parseInt(formData.order),
+          duration: parseInt(formData.duration),
+          content: editorData,
+          isPublished: formData.isPublished
         };
+        
+        await lessonAPI.update(id, lessonData);
+        setHasUnsavedChanges(false);
+        setLastSaved(new Date());
       }
-    } else if (field === 'data') {
-      // Update entire data object
-      newContent[index].data = value;
-    } else {
-      // Update direct field
-      newContent[index][field] = value;
+    } catch (error) {
+      console.error('Auto-save failed:', error);
+      // Don't show error to user for auto-save failures
     }
-    
-    setFormData(prev => ({
-      ...prev,
-      content: newContent
-    }));
-  };
-
-  // Update quiz options
-  const updateQuizOption = (blockIndex, optionIndex, value) => {
-    const newContent = [...formData.content];
-    const newOptions = [...newContent[blockIndex].data.options];
-    newOptions[optionIndex] = value;
-    
-    newContent[blockIndex].data = {
-      ...newContent[blockIndex].data,
-      options: newOptions
-    };
-    
-    setFormData(prev => ({
-      ...prev,
-      content: newContent
-    }));
   };
   
   // Validate form before submission
@@ -565,261 +216,109 @@ const LessonEditor = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (validateForm()) {
-      setIsLoading(true);
-      setApiError(null);
-      setSaveSuccess(false);
+    if (!validateForm()) {
+      return;
+    }
+    
+    setIsLoading(true);
+    setApiError(null);
+    setSaveSuccess(false);
+    
+    try {
+      // Get current editor data
+      const editorData = await editorRef.current?.save();
       
-      try {
-        // Format data for API
-        const lessonData = {
-          title: formData.title.trim(),
-          order: parseInt(formData.order),
-          duration: parseInt(formData.duration),
-          content: formData.content,
-          isPublished: formData.isPublished
-        };
-        
-        let response;
-        if (isEditing) {
-          response = await lessonAPI.update(id, lessonData);
-        } else {
-          // For new lessons, use the tutorial-specific endpoint
-          response = await lessonAPI.create(formData.tutorial, lessonData);
-        }
-        
-        setSaveSuccess(true);
-        
-        // Redirect after a short delay to show success message
-        setTimeout(() => {
-          navigate('/admin/lessons');
-        }, 1500);
-      } catch (err) {
-        console.error('Error saving lesson:', err);
-        
-        if (err.response?.data?.message) {
-          setApiError(err.response.data.message);
-        } else if (err.response?.status === 400) {
-          setApiError('Please check your input data and try again.');
-        } else if (err.response?.status === 404) {
-          setApiError('Tutorial not found. Please refresh and try again.');
-        } else {
-          setApiError('Failed to save lesson. Please try again.');
-        }
-        
-        setIsLoading(false);
+      if (!editorData) {
+        throw new Error('Could not save editor content');
       }
+      
+      // Prepare the lesson data
+      const lessonData = {
+        title: formData.title.trim(),
+        order: parseInt(formData.order),
+        duration: parseInt(formData.duration),
+        content: editorData,
+        isPublished: formData.isPublished
+      };
+      
+      let response;
+      if (isEditing) {
+        response = await lessonAPI.update(id, lessonData);
+      } else {
+        // For new lessons, use the tutorial-specific endpoint
+        response = await lessonAPI.create(formData.tutorial, lessonData);
+      }
+      
+      setSaveSuccess(true);
+      setHasUnsavedChanges(false);
+      setLastSaved(new Date());
+      
+      // Redirect after a short delay to show success message
+      setTimeout(() => {
+        navigate('/admin/lessons');
+      }, 1500);
+    } catch (err) {
+      console.error('Error saving lesson:', err);
+      
+      if (err.response?.data?.message) {
+        setApiError(err.response.data.message);
+      } else if (err.response?.status === 400) {
+        setApiError('Please check your input data and try again.');
+      } else if (err.response?.status === 404) {
+        setApiError('Tutorial not found. Please refresh and try again.');
+      } else {
+        setApiError('Failed to save lesson. Please try again.');
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
-
+  
+  // Handle preview toggle
+  const togglePreview = () => {
+    setShowPreview(!showPreview);
+  };
+  
   // Get tutorial name by ID
   const getTutorialName = (tutorialId) => {
     const tutorial = tutorials.find(t => t._id === tutorialId);
     return tutorial ? tutorial.title : 'Unknown Tutorial';
   };
 
-  // Render content block editor based on type
-  const renderContentBlockEditor = (block, index) => {
-    switch (block.type) {
-      case 'text':
-        return (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Text Content
-            </label>
-            <RichTextEditor
-              value={block.data?.html || block.data?.text || ''}
-              onChange={(value) => updateContentBlock(index, 'data.html', value)}
-              placeholder="Enter your content here..."
-            />
-          </div>
-        );
-        
-      case 'code':
-        return (
-          <div>
-            <div className="flex justify-between items-center mb-2">
-              <label className="block text-sm font-medium text-gray-700">
-                Code Snippet
-              </label>
-              <select
-                value={block.data?.language || 'html'}
-                onChange={(e) => updateContentBlock(index, 'data.language', e.target.value)}
-                className="px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              >
-                <option value="html">HTML</option>
-                <option value="css">CSS</option>
-                <option value="javascript">JavaScript</option>
-                <option value="python">Python</option>
-                <option value="java">Java</option>
-                <option value="cpp">C++</option>
-                <option value="json">JSON</option>
-              </select>
-            </div>
-            <textarea
-              value={block.data?.code || ''}
-              onChange={(e) => updateContentBlock(index, 'data.code', e.target.value)}
-              rows={6}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md font-mono text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              placeholder="// Enter your code here..."
-            ></textarea>
-          </div>
-        );
-        
-      case 'video':
-        return (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Video URL (YouTube embed format)
-            </label>
-            <input
-              type="url"
-              value={block.data?.url || ''}
-              onChange={(e) => updateContentBlock(index, 'data.url', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              placeholder="https://www.youtube.com/embed/video-id"
-            />
-            <label className="block text-sm font-medium text-gray-700 mt-2 mb-1">
-              Caption (optional)
-            </label>
-            <input
-              type="text"
-              value={block.data?.caption || ''}
-              onChange={(e) => updateContentBlock(index, 'data.caption', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              placeholder="Video caption"
-            />
-            {block.data?.url && (
-              <div className="mt-4 relative pt-[56.25%]">
-                <iframe
-                  className="absolute inset-0 w-full h-full rounded-md"
-                  src={block.data.url}
-                  title="Video preview"
-                  frameBorder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                ></iframe>
-              </div>
-            )}
-          </div>
-        );
-        
-      case 'image':
-        return (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Image URL
-            </label>
-            <input
-              type="url"
-              value={block.data?.url || ''}
-              onChange={(e) => updateContentBlock(index, 'data.url', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              placeholder="https://example.com/image.jpg"
-            />
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Alt Text
-                </label>
-                <input
-                  type="text"
-                  value={block.data?.alt || ''}
-                  onChange={(e) => updateContentBlock(index, 'data.alt', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  placeholder="Description of the image"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Caption (optional)
-                </label>
-                <input
-                  type="text"
-                  value={block.data?.caption || ''}
-                  onChange={(e) => updateContentBlock(index, 'data.caption', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  placeholder="Image caption"
-                />
-              </div>
-            </div>
-            {block.data?.url && (
-              <div className="mt-4">
-                <img 
-                  src={block.data.url} 
-                  alt={block.data.alt || 'Preview'} 
-                  className="max-h-64 rounded-md object-contain mx-auto"
-                  onError={(e) => {
-                    e.target.style.display = 'none';
-                  }}
-                />
-              </div>
-            )}
-          </div>
-        );
-
-      case 'quiz':
-        return (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Quiz Question
-            </label>
-            <input
-              type="text"
-              value={block.data?.question || ''}
-              onChange={(e) => updateContentBlock(index, 'data.question', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              placeholder="Enter your question"
-            />
-            
-            <div className="mt-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Answer Options
-              </label>
-              {(block.data?.options || []).map((option, optionIndex) => (
-                <div key={optionIndex} className="flex items-center mb-2">
-                  <input
-                    type="radio"
-                    name={`quiz-${index}`}
-                    checked={block.data?.correctAnswer === optionIndex}
-                    onChange={() => updateContentBlock(index, 'data.correctAnswer', optionIndex)}
-                    className="mr-2"
-                  />
-                  <input
-                    type="text"
-                    value={option}
-                    onChange={(e) => updateQuizOption(index, optionIndex, e.target.value)}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    placeholder={`Option ${optionIndex + 1}`}
-                  />
-                </div>
-              ))}
-              <p className="text-xs text-gray-500 mt-1">
-                Select the radio button next to the correct answer
-              </p>
-            </div>
-          </div>
-        );
-        
-      default:
-        return (
-          <div className="text-gray-500 italic">
-            Unknown content type: {block.type}
-          </div>
-        );
-    }
-  };
-
   return (
     <div>
-      <div className="flex items-center mb-6">
-        <button 
-          onClick={() => navigate('/admin/lessons')}
-          className="mr-4 p-2 rounded-md hover:bg-gray-100"
-        >
-          <ArrowLeft size={20} />
-        </button>
-        <h1 className="text-2xl font-bold">{isEditing ? 'Edit Lesson' : 'Create New Lesson'}</h1>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center">
+          <button 
+            onClick={() => navigate('/admin/lessons')}
+            className="mr-4 p-2 rounded-md hover:bg-gray-100"
+            disabled={isLoading}
+          >
+            <ArrowLeft size={20} />
+          </button>
+          <div>
+            <h1 className="text-2xl font-bold">
+              {isEditing ? 'Edit Lesson' : 'Create New Lesson'}
+            </h1>
+            {lastSaved && (
+              <p className="text-sm text-gray-500 mt-1">
+                Last saved: {lastSaved.toLocaleTimeString()}
+                {hasUnsavedChanges && <span className="text-orange-600 ml-2">• Unsaved changes</span>}
+              </p>
+            )}
+          </div>
+        </div>
+        
+        <div className="flex gap-2">
+          <button
+            onClick={togglePreview}
+            className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-2"
+            disabled={isLoading}
+          >
+            <Eye size={18} />
+            {showPreview ? 'Edit' : 'Preview'}
+          </button>
+        </div>
       </div>
       
       {/* Error Message */}
@@ -846,7 +345,10 @@ const LessonEditor = () => {
         <div className="space-y-6">
           {/* Lesson Details */}
           <div className="bg-white rounded-lg shadow-sm p-6">
-            <h2 className="text-lg font-medium mb-4">Lesson Details</h2>
+            <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
+              <FileText size={20} />
+              Lesson Details
+            </h2>
             <div className="space-y-4">
               <div>
                 <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
@@ -969,113 +471,38 @@ const LessonEditor = () => {
             </div>
           </div>
           
-          {/* Lesson Content */}
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-medium">Lesson Content</h2>
-              <div className="relative group">
-                <button 
-                  className="px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 flex items-center gap-2"
-                  disabled={isLoading}
-                >
-                  <Plus size={18} />
-                  Add Content
-                </button>
-                
-                <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 hidden group-hover:block">
-                  <div className="py-1">
-                    <button 
-                      onClick={() => addContentBlock('text')}
-                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      <FileText size={16} className="mr-2" />
-                      Text Paragraph
-                    </button>
-                    <button 
-                      onClick={() => addContentBlock('code')}
-                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      <Code size={16} className="mr-2" />
-                      Code Snippet
-                    </button>
-                    <button 
-                      onClick={() => addContentBlock('video')}
-                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      <Youtube size={16} className="mr-2" />
-                      YouTube Video
-                    </button>
-                    <button 
-                      onClick={() => addContentBlock('image')}
-                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      <Image size={16} className="mr-2" />
-                      Image
-                    </button>
-                    <button 
-                      onClick={() => addContentBlock('quiz')}
-                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      <ExternalLink size={16} className="mr-2" />
-                      Quiz
-                    </button>
-                  </div>
+          {/* Lesson Content Editor */}
+          {!showPreview ? (
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <h2 className="text-lg font-medium mb-4">Lesson Content</h2>
+              <EditorJSComponent
+                ref={editorRef}
+                data={formData.content}
+                onChange={handleContentChange}
+                placeholder="Start writing your lesson content..."
+                readOnly={isLoading}
+                className="min-h-96"
+              />
+            </div>
+          ) : (
+            /* Preview Mode */
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <h2 className="text-lg font-medium mb-4">Preview</h2>
+              <div className="prose prose-sm max-w-none">
+                <h1 className="text-2xl font-bold mb-4">{formData.title}</h1>
+                <div className="flex items-center gap-4 text-sm text-gray-500 mb-6 pb-4 border-b">
+                  <span>Duration: {formData.duration} minutes</span>
+                  <span>Order: #{formData.order}</span>
+                  <span>Status: {formData.isPublished ? 'Published' : 'Draft'}</span>
                 </div>
+                <EditorJSComponent
+                  data={formData.content}
+                  readOnly={true}
+                  className="border-none p-0"
+                />
               </div>
             </div>
-            
-            {formData.content.length === 0 ? (
-              <div className="text-center py-8 border-2 border-dashed rounded-md">
-                <p className="text-gray-500 mb-2">No content blocks added yet</p>
-                <p className="text-sm text-gray-400">Click "Add Content" to start building your lesson</p>
-              </div>
-            ) : (
-              <div className="space-y-6">
-                {formData.content.map((block, index) => (
-                  <div key={index} className="border rounded-md p-4 relative">
-                    {/* Content Block Header */}
-                    <div className="flex justify-between items-center mb-3 pb-2 border-b">
-                      <div className="flex items-center gap-2">
-                        <span className="p-1 bg-gray-100 rounded">
-                          <GripVertical size={16} className="text-gray-400" />
-                        </span>
-                        <h3 className="text-sm font-medium capitalize">{block.type} Block</h3>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => moveContentBlock(index, 'up')}
-                          className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md"
-                          disabled={index === 0 || isLoading}
-                          title="Move Up"
-                        >
-                          <ArrowUp size={14} className={index === 0 ? 'opacity-50' : ''} />
-                        </button>
-                        <button
-                          onClick={() => moveContentBlock(index, 'down')}
-                          className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md"
-                          disabled={index === formData.content.length - 1 || isLoading}
-                          title="Move Down"
-                        >
-                          <ArrowDown size={14} className={index === formData.content.length - 1 ? 'opacity-50' : ''} />
-                        </button>
-                        <button
-                          onClick={() => removeContentBlock(index)}
-                          className="p-1 text-gray-400 hover:text-red-600 hover:bg-gray-100 rounded-md"
-                          title="Remove Block"
-                          disabled={isLoading}
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </div>
-                    
-                    {/* Content Block Editor */}
-                    {renderContentBlockEditor(block, index)}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          )}
           
           {/* Submit Buttons */}
           <div className="flex justify-end space-x-3">
