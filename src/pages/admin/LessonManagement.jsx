@@ -3,7 +3,8 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { 
   Plus, Edit, Trash2, Search, Filter, ChevronDown, FileText, 
-  ExternalLink, AlertCircle, X, Copy, Eye, Download 
+  ExternalLink, AlertCircle, X, Copy, Eye, Download, 
+  CheckCircle, Clock, ArrowUp, ArrowDown, MoreVertical
 } from 'lucide-react';
 import { lessonAPI, tutorialAPI } from '../../services/api';
 
@@ -17,6 +18,7 @@ const LessonManagement = () => {
   const [lessonToDelete, setLessonToDelete] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [successMessage, setSuccessMessage] = useState('');
   const [pagination, setPagination] = useState({
     page: 1,
     pages: 1,
@@ -48,10 +50,11 @@ const LessonManagement = () => {
   const fetchTutorials = async () => {
     try {
       const response = await tutorialAPI.getAll();
-      setTutorials(response.data.tutorials || response.data || []);
+      const tutorialsList = response.data?.tutorials || response.data || [];
+      setTutorials(tutorialsList);
     } catch (err) {
       console.error('Error fetching tutorials:', err);
-      setError('Failed to load tutorials. Please try again.');
+      setError(err.message || 'Failed to load tutorials. Please try again.');
     }
   };
   
@@ -63,8 +66,13 @@ const LessonManagement = () => {
       // If a specific tutorial is selected, fetch lessons for that tutorial
       if (selectedTutorial) {
         const response = await lessonAPI.getByTutorial(selectedTutorial);
-        setLessons(response.data || response || []);
-        setPagination({ page: 1, pages: 1, total: response.length || 0 });
+        
+        if (response.success) {
+          setLessons(response.data || []);
+          setPagination({ page: 1, pages: 1, total: response.total || 0 });
+        } else {
+          throw new Error(response.message || 'Failed to fetch lessons');
+        }
       } else {
         // Otherwise, fetch all lessons with pagination
         const params = {
@@ -77,12 +85,17 @@ const LessonManagement = () => {
         }
         
         const response = await lessonAPI.getAll(params);
-        setLessons(response.lessons || []);
-        setPagination(response.pagination || { page: 1, pages: 1, total: 0 });
+        
+        if (response.success) {
+          setLessons(response.data || []);
+          setPagination(response.pagination || { page: 1, pages: 1, total: 0 });
+        } else {
+          throw new Error(response.message || 'Failed to fetch lessons');
+        }
       }
     } catch (err) {
       console.error('Error fetching lessons:', err);
-      setError('Failed to load lessons. Please try again.');
+      setError(err.message || 'Failed to load lessons. Please try again.');
       setLessons([]);
     } finally {
       setIsLoading(false);
@@ -124,15 +137,23 @@ const LessonManagement = () => {
   const deleteLesson = async () => {
     try {
       setIsLoading(true);
-      await lessonAPI.delete(lessonToDelete._id);
+      const response = await lessonAPI.delete(lessonToDelete._id);
       
-      // Refresh lessons
-      await fetchLessons();
-      setShowDeleteModal(false);
-      setLessonToDelete(null);
+      if (response.success) {
+        setSuccessMessage(response.message || 'Lesson deleted successfully');
+        // Refresh lessons
+        await fetchLessons();
+        setShowDeleteModal(false);
+        setLessonToDelete(null);
+        
+        // Clear success message after 3 seconds
+        setTimeout(() => setSuccessMessage(''), 3000);
+      } else {
+        throw new Error(response.message || 'Failed to delete lesson');
+      }
     } catch (err) {
       console.error('Error deleting lesson:', err);
-      alert('Failed to delete lesson. Please try again.');
+      setError(err.message || 'Failed to delete lesson. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -142,13 +163,21 @@ const LessonManagement = () => {
   const duplicateLesson = async (lesson) => {
     try {
       setIsLoading(true);
-      await lessonAPI.duplicate(lesson._id);
+      const response = await lessonAPI.duplicate(lesson._id);
       
-      // Refresh lessons
-      await fetchLessons();
+      if (response.success) {
+        setSuccessMessage(response.message || 'Lesson duplicated successfully');
+        // Refresh lessons
+        await fetchLessons();
+        
+        // Clear success message after 3 seconds
+        setTimeout(() => setSuccessMessage(''), 3000);
+      } else {
+        throw new Error(response.message || 'Failed to duplicate lesson');
+      }
     } catch (err) {
       console.error('Error duplicating lesson:', err);
-      alert('Failed to duplicate lesson. Please try again.');
+      setError(err.message || 'Failed to duplicate lesson. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -159,21 +188,100 @@ const LessonManagement = () => {
     try {
       const content = await lessonAPI.export(lesson._id, format);
       
-      const blob = new Blob([format === 'json' ? JSON.stringify(content, null, 2) : content], {
-        type: format === 'json' ? 'application/json' : format === 'html' ? 'text/html' : 'text/plain'
-      });
-      
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${lesson.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.${format}`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      if (content.success) {
+        const blob = new Blob([
+          format === 'json' 
+            ? JSON.stringify(content.data, null, 2) 
+            : content.data
+        ], {
+          type: format === 'json' ? 'application/json' : 
+               format === 'html' ? 'text/html' : 'text/plain'
+        });
+        
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${lesson.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.${format}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        setSuccessMessage(`Lesson exported as ${format.toUpperCase()}`);
+        setTimeout(() => setSuccessMessage(''), 3000);
+      } else {
+        throw new Error(content.message || 'Failed to export lesson');
+      }
     } catch (err) {
       console.error('Error exporting lesson:', err);
-      alert('Failed to export lesson. Please try again.');
+      setError(err.message || 'Failed to export lesson. Please try again.');
+    }
+  };
+
+  // Handle toggle publish status
+  const togglePublishStatus = async (lesson) => {
+    try {
+      setIsLoading(true);
+      const response = await lessonAPI.togglePublish(lesson._id, !lesson.isPublished);
+      
+      if (response.success) {
+        setSuccessMessage(response.message || `Lesson ${lesson.isPublished ? 'unpublished' : 'published'} successfully`);
+        // Refresh lessons
+        await fetchLessons();
+        
+        // Clear success message after 3 seconds
+        setTimeout(() => setSuccessMessage(''), 3000);
+      } else {
+        throw new Error(response.message || 'Failed to update lesson status');
+      }
+    } catch (err) {
+      console.error('Error toggling publish status:', err);
+      setError(err.message || 'Failed to update lesson status. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle move lesson up/down
+  const moveLessonOrder = async (lesson, direction) => {
+    if (!selectedTutorial) return;
+    
+    try {
+      setIsLoading(true);
+      const currentIndex = lessons.findIndex(l => l._id === lesson._id);
+      
+      if (direction === 'up' && currentIndex > 0) {
+        const newOrder = lessons[currentIndex - 1].order;
+        const lessonOrders = [
+          { lessonId: lesson._id, order: newOrder },
+          { lessonId: lessons[currentIndex - 1]._id, order: lesson.order }
+        ];
+        
+        const response = await lessonAPI.reorder(selectedTutorial, lessonOrders);
+        if (response.success) {
+          await fetchLessons();
+          setSuccessMessage('Lesson moved up successfully');
+          setTimeout(() => setSuccessMessage(''), 3000);
+        }
+      } else if (direction === 'down' && currentIndex < lessons.length - 1) {
+        const newOrder = lessons[currentIndex + 1].order;
+        const lessonOrders = [
+          { lessonId: lesson._id, order: newOrder },
+          { lessonId: lessons[currentIndex + 1]._id, order: lesson.order }
+        ];
+        
+        const response = await lessonAPI.reorder(selectedTutorial, lessonOrders);
+        if (response.success) {
+          await fetchLessons();
+          setSuccessMessage('Lesson moved down successfully');
+          setTimeout(() => setSuccessMessage(''), 3000);
+        }
+      }
+    } catch (err) {
+      console.error('Error moving lesson:', err);
+      setError(err.message || 'Failed to reorder lesson. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
   
@@ -186,6 +294,12 @@ const LessonManagement = () => {
   const getTutorialName = (tutorialId) => {
     const tutorial = tutorials.find(t => t._id === tutorialId);
     return tutorial ? tutorial.title : 'Unknown Tutorial';
+  };
+
+  // Clear messages
+  const clearMessages = () => {
+    setError(null);
+    setSuccessMessage('');
   };
 
   return (
@@ -276,11 +390,29 @@ const LessonManagement = () => {
         </div>
       </div>
       
+      {/* Success Message */}
+      {successMessage && (
+        <div className="mb-6 p-4 bg-green-50 text-green-700 rounded-md flex items-center justify-between">
+          <div className="flex items-center">
+            <CheckCircle size={18} className="mr-2" />
+            {successMessage}
+          </div>
+          <button onClick={clearMessages} className="text-green-500 hover:text-green-700">
+            <X size={16} />
+          </button>
+        </div>
+      )}
+
       {/* Error Message */}
       {error && (
-        <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-md flex items-center">
-          <AlertCircle size={18} className="mr-2" />
-          {error}
+        <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-md flex items-center justify-between">
+          <div className="flex items-center">
+            <AlertCircle size={18} className="mr-2" />
+            {error}
+          </div>
+          <button onClick={clearMessages} className="text-red-500 hover:text-red-700">
+            <X size={16} />
+          </button>
         </div>
       )}
       
@@ -340,10 +472,32 @@ const LessonManagement = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {lessons.map(lesson => (
+              {lessons.map((lesson, index) => (
                 <tr key={lesson._id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    #{lesson.order}
+                    <div className="flex items-center gap-2">
+                      <span>#{lesson.order}</span>
+                      {selectedTutorial && (
+                        <div className="flex flex-col gap-1">
+                          <button
+                            onClick={() => moveLessonOrder(lesson, 'up')}
+                            disabled={index === 0 || isLoading}
+                            className="text-gray-400 hover:text-gray-600 disabled:opacity-30"
+                            title="Move up"
+                          >
+                            <ArrowUp size={12} />
+                          </button>
+                          <button
+                            onClick={() => moveLessonOrder(lesson, 'down')}
+                            disabled={index === lessons.length - 1 || isLoading}
+                            className="text-gray-400 hover:text-gray-600 disabled:opacity-30"
+                            title="Move down"
+                          >
+                            <ArrowDown size={12} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center">
@@ -352,8 +506,15 @@ const LessonManagement = () => {
                       </div>
                       <div className="ml-3">
                         <div className="text-sm font-medium text-gray-900">{lesson.title}</div>
-                        <div className="text-xs text-gray-500">
-                          Created: {new Date(lesson.createdAt).toLocaleDateString()}
+                        <div className="text-xs text-gray-500 flex items-center gap-2">
+                          <Clock size={12} />
+                          <span>Created: {new Date(lesson.createdAt).toLocaleDateString()}</span>
+                          {lesson.updatedAt !== lesson.createdAt && (
+                            <>
+                              <span>•</span>
+                              <span>Updated: {new Date(lesson.updatedAt).toLocaleDateString()}</span>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -371,21 +532,23 @@ const LessonManagement = () => {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {lesson.isPublished ? (
-                      <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                        Published
-                      </span>
-                    ) : (
-                      <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
-                        Draft
-                      </span>
-                    )}
+                    <button
+                      onClick={() => togglePublishStatus(lesson)}
+                      disabled={isLoading}
+                      className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full cursor-pointer transition-colors ${
+                        lesson.isPublished 
+                          ? 'bg-green-100 text-green-800 hover:bg-green-200' 
+                          : 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
+                      }`}
+                    >
+                      {lesson.isPublished ? 'Published' : 'Draft'}
+                    </button>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex justify-end gap-1">
                       {/* Preview */}
                       <Link
-                        to={`/tutorials/${lesson.tutorial?._id || lesson.tutorial}/${lesson.slug || lesson._id}`}
+                        to={`/lessons/${lesson._id}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="p-1 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded"
@@ -493,7 +656,7 @@ const LessonManagement = () => {
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <h3 className="text-lg font-bold mb-4">Confirm Deletion</h3>
             <p className="mb-6">
-              Are you sure you want to delete the lesson "{lessonToDelete.title}"?
+              Are you sure you want to delete the lesson "{lessonToDelete.title}"? This action cannot be undone.
             </p>
             <div className="flex justify-end gap-3">
               <button

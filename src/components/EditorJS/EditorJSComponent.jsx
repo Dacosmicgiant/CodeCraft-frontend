@@ -23,7 +23,10 @@ const EditorJSComponent = forwardRef(({
   const editorInstance = useRef(null);
   const isInitialized = useRef(false);
   const isReady = useRef(false);
+  const isFocused = useRef(false);
+  const isTyping = useRef(false);
   const changeTimeout = useRef(null);
+  const typingTimeout = useRef(null);
   const editorId = useRef(`editor-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`);
 
   useImperativeHandle(ref, () => ({
@@ -89,9 +92,9 @@ const EditorJSComponent = forwardRef(({
     };
   }, []); // Only run once on mount
 
-  // Handle data changes
+  // Handle data changes - but don't update if user is typing
   useEffect(() => {
-    if (editorInstance.current && isInitialized.current && isReady.current && data) {
+    if (editorInstance.current && isInitialized.current && isReady.current && data && !isFocused.current && !isTyping.current) {
       if (process.env.NODE_ENV === 'development') {
         console.log('📊 Data prop changed, updating editor...');
       }
@@ -100,23 +103,37 @@ const EditorJSComponent = forwardRef(({
   }, [data]);
 
   const handleChange = async (api) => {
-    // Clear existing timeout
+    // Mark as typing and reset typing timeout
+    isTyping.current = true;
+    
+    if (typingTimeout.current) {
+      clearTimeout(typingTimeout.current);
+    }
+    
+    // Clear typing flag after user stops typing for 2 seconds
+    typingTimeout.current = setTimeout(() => {
+      isTyping.current = false;
+    }, 2000);
+
+    // Clear existing change timeout
     if (changeTimeout.current) {
       clearTimeout(changeTimeout.current);
     }
 
-    // Debounce the onChange call
+    // Much longer debounce to avoid interrupting user flow
     changeTimeout.current = setTimeout(async () => {
-      if (onChange && !readOnly && isReady.current && typeof api.saver.save === 'function') {
+      if (onChange && !readOnly && isReady.current && !isTyping.current && typeof api.saver.save === 'function') {
         try {
           const savedData = await api.saver.save();
-          console.log('📝 Content changed:', savedData);
+          if (process.env.NODE_ENV === 'development') {
+            console.log('📝 Content changed (debounced):', savedData);
+          }
           onChange(savedData);
         } catch (error) {
           console.error('❌ onChange error:', error);
         }
       }
-    }, 300);
+    }, 1500); // Increased from 300ms to 1500ms
   };
 
   const updateEditorData = async (newData) => {
@@ -179,24 +196,31 @@ const EditorJSComponent = forwardRef(({
               placeholder: 'Enter heading',
               levels: [2, 3, 4],
               defaultLevel: 2
-            }
+            },
+            shortcut: 'CMD+SHIFT+H'
           },
           paragraph: {
             class: Paragraph,
             inlineToolbar: true,
             config: {
-              placeholder: 'Start typing...'
+              placeholder: 'Start typing...',
+              preserveBlank: true
             }
           },
           list: {
             class: List,
-            inlineToolbar: true
+            inlineToolbar: true,
+            config: {
+              defaultStyle: 'unordered'
+            },
+            shortcut: 'CMD+SHIFT+L'
           },
           code: {
             class: Code,
             config: {
               placeholder: 'Enter code...'
-            }
+            },
+            shortcut: 'CMD+SHIFT+C'
           },
           quote: {
             class: Quote,
@@ -204,7 +228,8 @@ const EditorJSComponent = forwardRef(({
             config: {
               quotePlaceholder: 'Enter a quote',
               captionPlaceholder: 'Quote author'
-            }
+            },
+            shortcut: 'CMD+SHIFT+O'
           },
           warning: {
             class: Warning,
@@ -214,43 +239,80 @@ const EditorJSComponent = forwardRef(({
               messagePlaceholder: 'Message'
             }
           },
-          delimiter: Delimiter,
+          delimiter: {
+            class: Delimiter,
+            shortcut: 'CMD+SHIFT+D'
+          },
           table: {
             class: Table,
-            inlineToolbar: true
+            inlineToolbar: true,
+            config: {
+              rows: 2,
+              cols: 2
+            }
           },
           embed: {
             class: Embed,
             config: {
               services: {
-                youtube: true,
-                codepen: true
+                youtube: {
+                  regex: /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com|youtu\.be)\/(?:watch\?v=|embed\/|v\/)?([a-zA-Z0-9\-_]+)/,
+                  embedUrl: 'https://www.youtube.com/embed/<%= remote_id %>',
+                  html: '<iframe style="width:100%; height:320px; border:0; border-radius:8px;" src="<%= embed_url %>" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>',
+                  height: 320,
+                  width: 580
+                },
+                vimeo: {
+                  regex: /(?:https?:\/\/)?(?:www\.)?(?:player\.)?vimeo\.com\/(?:video\/)?([0-9]+)/,
+                  embedUrl: 'https://player.vimeo.com/video/<%= remote_id %>',
+                  html: '<iframe style="width:100%; height:320px; border:0; border-radius:8px;" src="<%= embed_url %>" frameborder="0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>',
+                  height: 320,
+                  width: 580
+                },
+                codepen: {
+                  regex: /https?:\/\/codepen\.io\/([^\/\?\&]*)\/pen\/([^\/\?\&]*)/,
+                  embedUrl: 'https://codepen.io/<%= remote_id %>?default-tab=result',
+                  html: '<iframe style="width:100%; height:300px; border:0; border-radius:8px;" src="<%= embed_url %>" frameborder="0" loading="lazy" allowtransparency="true" allowfullscreen="true"></iframe>',
+                  height: 300,
+                  width: 600
+                },
+                codesandbox: {
+                  regex: /https?:\/\/(?:www\.)?codesandbox\.io\/s\/([a-zA-Z0-9\-]+)/,
+                  embedUrl: 'https://codesandbox.io/embed/<%= remote_id %>',
+                  html: '<iframe style="width:100%; height:500px; border:0; border-radius:8px;" src="<%= embed_url %>" frameborder="0" loading="lazy" allow="accelerometer; ambient-light-sensor; camera; encrypted-media; geolocation; gyroscope; hid; microphone; midi; payment; usb; vr; xr-spatial-tracking" sandbox="allow-forms allow-modals allow-popups allow-presentation allow-same-origin allow-scripts"></iframe>',
+                  height: 500,
+                  width: 600
+                }
               }
-            }
+            },
+            shortcut: 'CMD+SHIFT+E'
           },
           image: {
             class: Image,
             config: {
               uploader: {
-                uploadByUrl: async (url) => {
-                  try {
-                    new URL(url);
-                    return {
-                      success: 1,
-                      file: { url }
-                    };
-                  } catch {
-                    return {
-                      success: 0,
-                      error: 'Invalid URL'
-                    };
-                  }
+                uploadByUrl: (url) => {
+                  return Promise.resolve({
+                    success: 1,
+                    file: {
+                      url: url,
+                    }
+                  });
                 }
               }
-            }
+            },
+            shortcut: 'CMD+SHIFT+I'
           }
         },
-        onChange: handleChange
+        onChange: handleChange,
+        onReady: () => {
+          if (process.env.NODE_ENV === 'development') {
+            console.log('🎯 Editor onReady callback fired');
+          }
+        },
+        autofocus: false,
+        hideToolbar: false,
+        minHeight: 200
       };
 
       const editor = new EditorJS(editorConfig);
@@ -261,6 +323,34 @@ const EditorJSComponent = forwardRef(({
       try {
         await editor.isReady;
         isReady.current = true;
+        
+        // Add focus tracking to prevent updates while editing
+        if (editorRef.current) {
+          const editorElement = editorRef.current;
+          
+          editorElement.addEventListener('focusin', () => {
+            isFocused.current = true;
+          });
+          
+          editorElement.addEventListener('focusout', () => {
+            // Delay setting focus to false to avoid interruptions during toolbar use
+            setTimeout(() => {
+              isFocused.current = false;
+            }, 500);
+          });
+          
+          // Track when user is actively typing
+          editorElement.addEventListener('keydown', () => {
+            isTyping.current = true;
+            if (typingTimeout.current) {
+              clearTimeout(typingTimeout.current);
+            }
+            typingTimeout.current = setTimeout(() => {
+              isTyping.current = false;
+            }, 2000);
+          });
+        }
+        
         if (process.env.NODE_ENV === 'development') {
           console.log('✅ Editor ready!');
         }
@@ -290,6 +380,13 @@ const EditorJSComponent = forwardRef(({
     if (changeTimeout.current) {
       clearTimeout(changeTimeout.current);
     }
+    if (typingTimeout.current) {
+      clearTimeout(typingTimeout.current);
+    }
+
+    // Reset state flags
+    isTyping.current = false;
+    isFocused.current = false;
 
     if (editorInstance.current) {
       try {
@@ -332,6 +429,12 @@ const EditorJSComponent = forwardRef(({
 
     // Aggressive DOM cleanup to prevent duplicates
     if (editorRef.current) {
+      // Remove focus event listeners
+      const editorElement = editorRef.current;
+      editorElement.removeEventListener('focusin', () => {});
+      editorElement.removeEventListener('focusout', () => {});
+      editorElement.removeEventListener('keydown', () => {});
+      
       // Remove all child elements
       while (editorRef.current.firstChild) {
         editorRef.current.removeChild(editorRef.current.firstChild);
@@ -343,9 +446,9 @@ const EditorJSComponent = forwardRef(({
       editorRef.current.innerHTML = '';
       
       // Remove any EditorJS specific attributes
-      const editorElement = editorRef.current.querySelector('[data-empty="true"]');
-      if (editorElement) {
-        editorElement.remove();
+      const editorElement2 = editorRef.current.querySelector('[data-empty="true"]');
+      if (editorElement2) {
+        editorElement2.remove();
       }
     }
   };
@@ -353,9 +456,14 @@ const EditorJSComponent = forwardRef(({
   return (
     <div className={`editor-container ${className}`}>
       {!readOnly && (
-        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-          <div className="text-xs text-blue-600">
-            💡 Click the <strong>+</strong> button to add content blocks
+        <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="text-sm text-blue-700 space-y-2">
+            <div className="font-medium mb-2">💡 Editor Features:</div>
+            <div>• Click the <strong>+</strong> button to add content blocks</div>
+            <div>• Use <strong>/</strong> for quick access to tools</div>
+            <div>• <strong>YouTube/Vimeo</strong>: Paste video URLs to embed</div>
+            <div>• <strong>Images</strong>: Paste image URLs or upload files</div>
+            <div>• <strong>Code blocks</strong>: Perfect for tutorials</div>
           </div>
         </div>
       )}
@@ -466,6 +574,60 @@ const EditorJSComponent = forwardRef(({
           color: #6b7280;
           margin-top: 10px;
           font-size: 14px;
+        }
+        
+        /* Embed styling */
+        .editor-container .embed-tool {
+          margin: 20px 0;
+        }
+        
+        .editor-container .embed-tool__content {
+          border-radius: 8px;
+          overflow: hidden;
+          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .editor-container .embed-tool__caption {
+          text-align: center;
+          font-style: italic;
+          color: #6b7280;
+          margin-top: 10px;
+          font-size: 14px;
+        }
+        
+        /* YouTube and video embeds */
+        .editor-container iframe {
+          border-radius: 8px;
+          max-width: 100%;
+        }
+        
+        /* Image tool styling improvements */
+        .editor-container .image-tool {
+          margin: 20px 0;
+        }
+        
+        .editor-container .image-tool__image-preloader {
+          background: #f3f4f6;
+          border: 2px dashed #d1d5db;
+          border-radius: 8px;
+          padding: 40px;
+          text-align: center;
+          color: #6b7280;
+        }
+        
+        .editor-container .image-tool__url-input {
+          width: 100%;
+          padding: 12px;
+          border: 2px solid #e5e7eb;
+          border-radius: 8px;
+          font-size: 14px;
+          margin-top: 10px;
+        }
+        
+        .editor-container .image-tool__url-input:focus {
+          outline: none;
+          border-color: #059669;
+          box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.1);
         }
       `}</style>
     </div>

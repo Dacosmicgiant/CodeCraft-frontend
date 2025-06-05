@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { 
-  ArrowLeft, Save, AlertCircle, Check, Eye, FileText 
+  ArrowLeft, Save, AlertCircle, Check, Eye, FileText, Clock, CheckCircle 
 } from 'lucide-react';
 import { lessonAPI, tutorialAPI } from '../../services/api';
 import EditorJSComponent from '../../components/EditorJS/EditorJSComponent';
@@ -34,10 +34,12 @@ const LessonEditor = () => {
   
   const [tutorials, setTutorials] = useState([]);
   const [errors, setErrors] = useState({});
+  const [validationErrors, setValidationErrors] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isTutorialsLoading, setIsTutorialsLoading] = useState(true);
   const [apiError, setApiError] = useState(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
   const [showPreview, setShowPreview] = useState(false);
   const [lastSaved, setLastSaved] = useState(null);
   
@@ -45,10 +47,15 @@ const LessonEditor = () => {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const autoSaveTimeoutRef = useRef(null);
   
-  // Load tutorials for dropdown
+  // Load tutorials when component mounts
   useEffect(() => {
     fetchTutorials();
-  }, []);
+    
+    // If a tutorialId is provided in the URL, select it
+    if (tutorialIdFromQuery) {
+      setFormData(prev => ({ ...prev, tutorial: tutorialIdFromQuery }));
+    }
+  }, [tutorialIdFromQuery]);
   
   // Load lesson data when editing
   useEffect(() => {
@@ -82,11 +89,13 @@ const LessonEditor = () => {
     try {
       setIsTutorialsLoading(true);
       const response = await tutorialAPI.getAll();
-      const tutorialsList = response.data.tutorials || response.data || [];
+      
+      // Handle new response format
+      const tutorialsList = response.data?.tutorials || response.data || [];
       setTutorials(tutorialsList);
     } catch (err) {
       console.error('Error fetching tutorials:', err);
-      setApiError('Failed to load tutorials. Please try again.');
+      setApiError(err.message || 'Failed to load tutorials. Please try again.');
     } finally {
       setIsTutorialsLoading(false);
     }
@@ -98,6 +107,12 @@ const LessonEditor = () => {
       setApiError(null);
       
       const response = await lessonAPI.getById(lessonId);
+      
+      // Handle new response format
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to load lesson');
+      }
+      
       const lesson = response.data;
       
       // Safely extract tutorial ID
@@ -123,12 +138,13 @@ const LessonEditor = () => {
       });
       
       setLastSaved(new Date());
+      setHasUnsavedChanges(false);
     } catch (err) {
       console.error('Error fetching lesson:', err);
-      if (err.response?.status === 404) {
+      if (err.status === 404) {
         setApiError('Lesson not found.');
       } else {
-        setApiError('Failed to load lesson data. Please try again.');
+        setApiError(err.message || 'Failed to load lesson data. Please try again.');
       }
     } finally {
       setIsLoading(false);
@@ -151,6 +167,16 @@ const LessonEditor = () => {
         ...prev,
         [name]: ''
       }));
+    }
+    
+    // Clear validation errors
+    if (validationErrors.length > 0) {
+      setValidationErrors([]);
+    }
+    
+    // Clear API error
+    if (apiError) {
+      setApiError(null);
     }
   };
   
@@ -179,10 +205,13 @@ const LessonEditor = () => {
           isPublished: formData.isPublished
         };
         
-        await lessonAPI.update(id, lessonData);
-        setHasUnsavedChanges(false);
-        setLastSaved(new Date());
-        console.log('💾 Auto-saved lesson');
+        const response = await lessonAPI.update(id, lessonData);
+        
+        if (response.success) {
+          setHasUnsavedChanges(false);
+          setLastSaved(new Date());
+          console.log('💾 Auto-saved lesson');
+        }
       }
     } catch (error) {
       console.error('Auto-save failed:', error);
@@ -224,7 +253,9 @@ const LessonEditor = () => {
     
     setIsLoading(true);
     setApiError(null);
+    setValidationErrors([]);
     setSaveSuccess(false);
+    setSuccessMessage('');
     
     try {
       // Get current editor data
@@ -251,26 +282,30 @@ const LessonEditor = () => {
         response = await lessonAPI.create(formData.tutorial, lessonData);
       }
       
-      setSaveSuccess(true);
-      setHasUnsavedChanges(false);
-      setLastSaved(new Date());
-      
-      // Redirect after a short delay to show success message
-      setTimeout(() => {
-        navigate('/admin/lessons');
-      }, 1500);
+      // Handle new response format
+      if (response.success) {
+        setSaveSuccess(true);
+        setSuccessMessage(response.message);
+        setHasUnsavedChanges(false);
+        setLastSaved(new Date());
+        
+        // Redirect after a short delay to show success message
+        setTimeout(() => {
+          navigate('/admin/lessons');
+        }, 1500);
+      } else {
+        throw new Error(response.message || 'Failed to save lesson');
+      }
     } catch (err) {
       console.error('Error saving lesson:', err);
       
-      if (err.response?.data?.message) {
-        setApiError(err.response.data.message);
-      } else if (err.response?.status === 400) {
-        setApiError('Please check your input data and try again.');
-      } else if (err.response?.status === 404) {
-        setApiError('Tutorial not found. Please refresh and try again.');
-      } else {
-        setApiError('Failed to save lesson. Please try again.');
+      // Handle validation errors
+      if (err.errors && Array.isArray(err.errors)) {
+        setValidationErrors(err.errors);
       }
+      
+      // Set main error message
+      setApiError(err.message || 'Failed to save lesson. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -297,6 +332,17 @@ const LessonEditor = () => {
     return tutorial ? tutorial.title : 'Unknown Tutorial';
   };
 
+  // Handle navigation with unsaved changes warning
+  const handleNavigation = (path) => {
+    if (hasUnsavedChanges) {
+      const confirmLeave = window.confirm(
+        'You have unsaved changes. Are you sure you want to leave this page?'
+      );
+      if (!confirmLeave) return;
+    }
+    navigate(path);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-4xl mx-auto px-4 py-6">
@@ -304,7 +350,7 @@ const LessonEditor = () => {
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center">
             <button 
-              onClick={() => navigate('/admin/lessons')}
+              onClick={() => handleNavigation('/admin/lessons')}
               className="mr-4 p-2 rounded-md hover:bg-gray-100 transition-colors"
               disabled={isLoading}
             >
@@ -314,12 +360,25 @@ const LessonEditor = () => {
               <h1 className="text-2xl font-bold text-gray-900">
                 {isEditing ? 'Edit Lesson' : 'Create New Lesson'}
               </h1>
-              {lastSaved && (
-                <p className="text-sm text-gray-500 mt-1">
-                  Last saved: {lastSaved.toLocaleTimeString()}
-                  {hasUnsavedChanges && <span className="text-orange-600 ml-2">• Unsaved changes</span>}
-                </p>
-              )}
+              <div className="flex items-center gap-4 mt-1">
+                {lastSaved && (
+                  <p className="text-sm text-gray-500">
+                    Last saved: {lastSaved.toLocaleTimeString()}
+                  </p>
+                )}
+                {hasUnsavedChanges && (
+                  <span className="flex items-center text-orange-600 text-sm">
+                    <Clock size={14} className="mr-1" />
+                    Unsaved changes
+                  </span>
+                )}
+                {!hasUnsavedChanges && lastSaved && (
+                  <span className="flex items-center text-green-600 text-sm">
+                    <CheckCircle size={14} className="mr-1" />
+                    All changes saved
+                  </span>
+                )}
+              </div>
             </div>
           </div>
           
@@ -335,11 +394,31 @@ const LessonEditor = () => {
           </div>
         </div>
         
-        {/* Error Message */}
+        {/* Error Messages */}
         {apiError && (
-          <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-md flex items-center">
-            <AlertCircle size={18} className="mr-2 flex-shrink-0" />
-            {apiError}
+          <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-md flex items-start">
+            <AlertCircle size={18} className="mr-2 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="font-medium">Error</p>
+              <p className="text-sm mt-1">{apiError}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Validation Errors */}
+        {validationErrors.length > 0 && (
+          <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-md">
+            <div className="flex items-start">
+              <AlertCircle size={18} className="mr-2 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="font-medium">Validation Errors</p>
+                <ul className="text-sm mt-1 list-disc list-inside">
+                  {validationErrors.map((error, index) => (
+                    <li key={index}>{error}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
           </div>
         )}
         
@@ -347,7 +426,10 @@ const LessonEditor = () => {
         {saveSuccess && (
           <div className="mb-6 p-4 bg-green-50 text-green-700 rounded-md flex items-center">
             <Check size={18} className="mr-2 flex-shrink-0" />
-            Lesson {isEditing ? 'updated' : 'created'} successfully!
+            <div className="flex-1">
+              <p className="font-medium">{successMessage}</p>
+              <p className="text-sm mt-1">Redirecting to lesson management...</p>
+            </div>
           </div>
         )}
         
@@ -459,6 +541,7 @@ const LessonEditor = () => {
                       value={formData.duration}
                       onChange={handleChange}
                       min="1"
+                      max="300"
                       className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors ${
                         errors.duration ? 'border-red-300 bg-red-50' : 'border-gray-300 bg-white'
                       }`}
@@ -542,7 +625,7 @@ const LessonEditor = () => {
             <div className="flex justify-between items-center bg-white rounded-lg shadow-sm border border-gray-200 p-6">
               <button
                 type="button"
-                onClick={() => navigate('/admin/lessons')}
+                onClick={() => handleNavigation('/admin/lessons')}
                 className="px-6 py-3 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
                 disabled={isLoading}
               >
