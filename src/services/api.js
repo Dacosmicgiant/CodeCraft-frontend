@@ -20,24 +20,23 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Add a response interceptor - FIXED VERSION
+// Add a response interceptor
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
     
-    // Don't automatically redirect on 401 errors
-    // Let the calling component handle authentication errors appropriately
-    if (error.response?.status === 401) {
-      // Only clear stored data, don't redirect automatically
-      // The AuthContext will handle the authentication flow
-      console.log('401 Unauthorized - clearing stored auth data');
+    // If error is 401 and not already retrying
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
       
-      // Only clear if this wasn't an auth check request
-      // This prevents clearing data when just checking authentication status
-      if (!originalRequest.url.includes('/auth/me')) {
+      try {
+        // Clear auth data and redirect to login
         localStorage.removeItem('token');
         localStorage.removeItem('user');
+        window.location.href = '/login';
+      } catch (err) {
+        console.error('Authentication error:', err);
       }
     }
     
@@ -98,12 +97,29 @@ export const exercisesAPI = {
   submit: (id, solution) => api.post(`/exercises/${id}/submit`, { solution }),
 };
 
+// src/services/api.js (complete lesson API functions)
+
+// Add these functions to your existing API service file
+
 export const lessonAPI = {
   // Create lesson with EditorJS content
   create: async (tutorialId, lessonData) => {
     try {
-      const response = await api.post(`/tutorials/${tutorialId}/lessons`, lessonData);
-      return response;
+      const response = await fetch(`/api/v1/tutorials/${tutorialId}/lessons`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(lessonData)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to create lesson');
+      }
+
+      return await response.json();
     } catch (error) {
       console.error('Create lesson error:', error);
       throw error;
@@ -113,8 +129,18 @@ export const lessonAPI = {
   // Get all lessons (admin) with pagination and filters
   getAll: async (params = {}) => {
     try {
-      const response = await api.get('/lessons', { params });
-      return response;
+      const queryParams = new URLSearchParams(params);
+      const response = await fetch(`/api/v1/lessons?${queryParams}`, {
+        method: 'GET',
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to fetch lessons');
+      }
+
+      return await response.json();
     } catch (error) {
       console.error('Get all lessons error:', error);
       throw error;
@@ -124,8 +150,17 @@ export const lessonAPI = {
   // Get lesson by ID
   getById: async (id) => {
     try {
-      const response = await api.get(`/lessons/${id}`);
-      return response;
+      const response = await fetch(`/api/v1/lessons/${id}`, {
+        method: 'GET',
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to fetch lesson');
+      }
+
+      return await response.json();
     } catch (error) {
       console.error('Get lesson error:', error);
       throw error;
@@ -135,8 +170,17 @@ export const lessonAPI = {
   // Get lessons by tutorial
   getByTutorial: async (tutorialId) => {
     try {
-      const response = await api.get(`/tutorials/${tutorialId}/lessons`);
-      return response;
+      const response = await fetch(`/api/v1/tutorials/${tutorialId}/lessons`, {
+        method: 'GET',
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to fetch lessons');
+      }
+
+      return await response.json();
     } catch (error) {
       console.error('Get lessons error:', error);
       throw error;
@@ -146,8 +190,21 @@ export const lessonAPI = {
   // Update lesson
   update: async (id, lessonData) => {
     try {
-      const response = await api.put(`/lessons/${id}`, lessonData);
-      return response;
+      const response = await fetch(`/api/v1/lessons/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(lessonData)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update lesson');
+      }
+
+      return await response.json();
     } catch (error) {
       console.error('Update lesson error:', error);
       throw error;
@@ -157,8 +214,21 @@ export const lessonAPI = {
   // Update lesson content only
   updateContent: async (id, content) => {
     try {
-      const response = await api.put(`/lessons/${id}/content`, { content });
-      return response;
+      const response = await fetch(`/api/v1/lessons/${id}/content`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ content })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update lesson content');
+      }
+
+      return await response.json();
     } catch (error) {
       console.error('Update lesson content error:', error);
       throw error;
@@ -168,8 +238,17 @@ export const lessonAPI = {
   // Delete lesson
   delete: async (id) => {
     try {
-      const response = await api.delete(`/lessons/${id}`);
-      return response;
+      const response = await fetch(`/api/v1/lessons/${id}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to delete lesson');
+      }
+
+      return await response.json();
     } catch (error) {
       console.error('Delete lesson error:', error);
       throw error;
@@ -179,8 +258,21 @@ export const lessonAPI = {
   // Reorder lessons
   reorder: async (lessons) => {
     try {
-      const response = await api.put('/lessons/reorder', { lessons });
-      return response;
+      const response = await fetch('/api/v1/lessons/reorder', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ lessons })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to reorder lessons');
+      }
+
+      return await response.json();
     } catch (error) {
       console.error('Reorder lessons error:', error);
       throw error;
@@ -190,8 +282,17 @@ export const lessonAPI = {
   // Duplicate lesson
   duplicate: async (id) => {
     try {
-      const response = await api.post(`/lessons/${id}/duplicate`);
-      return response;
+      const response = await fetch(`/api/v1/lessons/${id}/duplicate`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to duplicate lesson');
+      }
+
+      return await response.json();
     } catch (error) {
       console.error('Duplicate lesson error:', error);
       throw error;
@@ -201,8 +302,21 @@ export const lessonAPI = {
   // Bulk update lessons
   bulkUpdate: async (lessonIds, update) => {
     try {
-      const response = await api.put('/lessons/bulk', { lessonIds, update });
-      return response;
+      const response = await fetch('/api/v1/lessons/bulk', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ lessonIds, update })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to bulk update lessons');
+      }
+
+      return await response.json();
     } catch (error) {
       console.error('Bulk update lessons error:', error);
       throw error;
@@ -216,8 +330,21 @@ export const lessonAPI = {
       const endpoint = format === 'json' ? 'export-json' : 
                      format === 'html' ? 'export-html' : 'export-text';
       
-      const response = await api.get(`/lessons/${id}/${endpoint}`);
-      return response.data;
+      const response = await fetch(`/api/v1/lessons/${id}/${endpoint}`, {
+        method: 'GET',
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to export lesson');
+      }
+
+      if (format === 'json') {
+        return await response.json();
+      } else {
+        return await response.text();
+      }
     } catch (error) {
       console.error('Export lesson error:', error);
       throw error;
@@ -271,5 +398,4 @@ export const validateImageUrl = (url) => {
     };
   }
 };
-
 export default api;
