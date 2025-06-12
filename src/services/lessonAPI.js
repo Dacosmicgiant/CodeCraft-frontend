@@ -1,278 +1,405 @@
-// src/services/lessonAPI.js
-import api from './api';
+// src/services/api/lessonAPI.js
+import apiClient from './apiClient'; // Assume you have this axios instance configured
 
-const lessonAPI = {
-  // Create a new lesson for a specific tutorial
-  create: async (tutorialId, lessonData) => {
-    const response = await api.post(`/tutorials/${tutorialId}/lessons`, lessonData);
-    return response.data;
-  },
-
-  // Get all lessons (with pagination and filters)
+/**
+ * Lesson API Service
+ * Handles all lesson-related API calls
+ */
+export const lessonAPI = {
+  /**
+   * Get all lessons with pagination and search
+   * @param {Object} params - Query parameters
+   * @param {number} params.page - Page number
+   * @param {number} params.limit - Items per page
+   * @param {string} params.search - Search query
+   * @param {string} params.tutorial - Tutorial ID filter
+   * @param {boolean} params.published - Published filter
+   * @returns {Promise} API response
+   */
   getAll: async (params = {}) => {
-    const queryParams = new URLSearchParams();
-    
-    if (params.page) queryParams.append('page', params.page);
-    if (params.limit) queryParams.append('limit', params.limit);
-    if (params.search) queryParams.append('search', params.search);
-    if (params.tutorial) queryParams.append('tutorial', params.tutorial);
-    if (params.published !== undefined) queryParams.append('published', params.published);
-    
-    const response = await api.get(`/lessons?${queryParams.toString()}`);
-    return response.data;
-  },
-
-  // Get lessons by tutorial ID
-  getByTutorial: async (tutorialId) => {
-    const response = await api.get(`/tutorials/${tutorialId}/lessons`);
-    return response.data;
-  },
-
-  // Get lesson by ID
-  getById: async (lessonId) => {
-    const response = await api.get(`/lessons/${lessonId}`);
-    return response.data;
-  },
-
-  // Update lesson
-  update: async (lessonId, lessonData) => {
-    const response = await api.put(`/lessons/${lessonId}`, lessonData);
-    return response.data;
-  },
-
-  // Update only lesson content
-  updateContent: async (lessonId, content) => {
-    const response = await api.put(`/lessons/${lessonId}/content`, { content });
-    return response.data;
-  },
-
-  // Delete lesson
-  delete: async (lessonId) => {
-    const response = await api.delete(`/lessons/${lessonId}`);
-    return response.data;
-  },
-
-  // Duplicate lesson
-  duplicate: async (lessonId) => {
-    const response = await api.post(`/lessons/${lessonId}/duplicate`);
-    return response.data;
-  },
-
-  // Toggle publish status
-  togglePublish: async (lessonId, isPublished) => {
-    const response = await api.put(`/lessons/${lessonId}`, { isPublished });
-    return response.data;
-  },
-
-  // Reorder lessons within a tutorial
-  reorder: async (tutorialId, lessonOrders) => {
-    const response = await api.put(`/tutorials/${tutorialId}/lessons/reorder`, { lessonOrders });
-    return response.data;
-  },
-
-  // Export lesson in different formats
-  export: async (lessonId, format = 'json') => {
+    console.log('🔍 Getting all lessons with params:', params);
     try {
-      const lesson = await lessonAPI.getById(lessonId);
+      const queryParams = new URLSearchParams();
       
-      if (!lesson.success) {
-        throw new Error(lesson.message || 'Failed to fetch lesson');
-      }
+      // Add params to query string
+      Object.keys(params).forEach(key => {
+        if (params[key] !== undefined && params[key] !== null && params[key] !== '') {
+          queryParams.append(key, params[key]);
+        }
+      });
       
-      const lessonData = lesson.data;
-      let exportData;
+      const queryString = queryParams.toString();
+      const url = queryString ? `/lessons/all?${queryString}` : '/lessons/all';
       
-      switch (format) {
-        case 'json':
-          exportData = JSON.stringify(lessonData, null, 2);
-          break;
-          
-        case 'html':
-          exportData = lessonAPI.convertToHTML(lessonData);
-          break;
-          
-        case 'text':
-          exportData = lessonAPI.convertToText(lessonData);
-          break;
-          
-        default:
-          throw new Error('Unsupported export format');
-      }
-      
-      return {
-        success: true,
-        data: exportData,
-        filename: `${lessonData.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.${format}`
-      };
+      const response = await apiClient.get(url);
+      console.log('✅ Got all lessons:', response.data);
+      return response.data;
     } catch (error) {
-      return {
-        success: false,
-        message: error.message || 'Export failed'
+      console.error('❌ Get all lessons error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get lessons by tutorial ID
+   * @param {string} tutorialId - Tutorial ID
+   * @returns {Promise} API response
+   */
+  getByTutorial: async (tutorialId) => {
+    console.log('🔍 Getting lessons for tutorial:', tutorialId);
+    try {
+      if (!tutorialId) {
+        throw new Error('Tutorial ID is required');
+      }
+      
+      const response = await apiClient.get(`/tutorials/${tutorialId}/lessons`);
+      console.log('✅ Got tutorial lessons:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Get tutorial lessons error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get lesson by ID
+   * @param {string} lessonId - Lesson ID
+   * @returns {Promise} API response
+   */
+  getById: async (lessonId) => {
+    console.log('🔍 Getting lesson by ID:', lessonId);
+    try {
+      if (!lessonId) {
+        throw new Error('Lesson ID is required');
+      }
+      
+      const response = await apiClient.get(`/lessons/${lessonId}`);
+      console.log('✅ Got lesson:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Get lesson error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Create new lesson
+   * @param {string} tutorialId - Tutorial ID
+   * @param {Object} lessonData - Lesson data
+   * @param {string} lessonData.title - Lesson title
+   * @param {number} lessonData.order - Lesson order
+   * @param {number} lessonData.duration - Duration in minutes
+   * @param {Object} lessonData.content - EditorJS content
+   * @param {boolean} lessonData.isPublished - Published status
+   * @returns {Promise} API response
+   */
+  create: async (tutorialId, lessonData) => {
+    console.log('📝 Creating lesson for tutorial:', tutorialId);
+    console.log('📝 Lesson data:', lessonData);
+    try {
+      if (!tutorialId) {
+        throw new Error('Tutorial ID is required');
+      }
+      
+      if (!lessonData) {
+        throw new Error('Lesson data is required');
+      }
+
+      // Validate required fields
+      if (!lessonData.title || !lessonData.title.trim()) {
+        throw new Error('Lesson title is required');
+      }
+
+      if (!lessonData.order || lessonData.order < 1) {
+        throw new Error('Lesson order is required and must be positive');
+      }
+
+      if (!lessonData.duration || lessonData.duration < 1) {
+        throw new Error('Lesson duration is required and must be positive');
+      }
+
+      // Ensure content has proper structure
+      const contentData = {
+        ...lessonData,
+        content: lessonData.content || {
+          time: Date.now(),
+          blocks: [],
+          version: "2.28.2"
+        }
       };
+      
+      const response = await apiClient.post(`/tutorials/${tutorialId}/lessons`, contentData);
+      console.log('✅ Created lesson:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Create lesson error:', error);
+      throw error;
     }
   },
 
-  // Convert EditorJS content to HTML
-  convertToHTML: (lessonData) => {
-    let html = `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${lessonData.title}</title>
-    <style>
-        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; line-height: 1.6; }
-        h1, h2, h3, h4, h5, h6 { color: #333; }
-        code { background: #f4f4f4; padding: 2px 4px; border-radius: 3px; }
-        pre { background: #f4f4f4; padding: 15px; border-radius: 5px; overflow-x: auto; }
-        blockquote { border-left: 4px solid #ddd; margin: 0; padding-left: 20px; font-style: italic; }
-        img { max-width: 100%; height: auto; }
-        table { border-collapse: collapse; width: 100%; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #f2f2f2; }
-        .delimiter { text-align: center; margin: 30px 0; font-size: 24px; color: #ddd; }
-    </style>
-</head>
-<body>
-    <h1>${lessonData.title}</h1>
-    <div class="meta">
-        <p><strong>Duration:</strong> ${lessonData.duration} minutes</p>
-        <p><strong>Order:</strong> #${lessonData.order}</p>
-        <p><strong>Status:</strong> ${lessonData.isPublished ? 'Published' : 'Draft'}</p>
-    </div>
-    <hr>
-`;
+  /**
+   * Update lesson
+   * @param {string} lessonId - Lesson ID
+   * @param {Object} lessonData - Updated lesson data
+   * @returns {Promise} API response
+   */
+  update: async (lessonId, lessonData) => {
+    console.log('📝 Updating lesson:', lessonId);
+    console.log('📝 Lesson data:', lessonData);
+    try {
+      if (!lessonId) {
+        throw new Error('Lesson ID is required');
+      }
+      
+      if (!lessonData) {
+        throw new Error('Lesson data is required');
+      }
+      
+      const response = await apiClient.put(`/lessons/${lessonId}`, lessonData);
+      console.log('✅ Updated lesson:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Update lesson error:', error);
+      throw error;
+    }
+  },
 
-    if (lessonData.content && lessonData.content.blocks) {
-      lessonData.content.blocks.forEach(block => {
-        html += lessonAPI.convertBlockToHTML(block);
+  /**
+   * Update lesson content only
+   * @param {string} lessonId - Lesson ID
+   * @param {Object} content - EditorJS content
+   * @returns {Promise} API response
+   */
+  updateContent: async (lessonId, content) => {
+    console.log('📝 Updating lesson content:', lessonId);
+    try {
+      if (!lessonId) {
+        throw new Error('Lesson ID is required');
+      }
+      
+      if (!content) {
+        throw new Error('Content is required');
+      }
+      
+      const response = await apiClient.put(`/lessons/${lessonId}/content`, { content });
+      console.log('✅ Updated lesson content:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Update lesson content error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Delete lesson
+   * @param {string} lessonId - Lesson ID
+   * @returns {Promise} API response
+   */
+  delete: async (lessonId) => {
+    console.log('🗑️ Deleting lesson:', lessonId);
+    try {
+      if (!lessonId) {
+        throw new Error('Lesson ID is required');
+      }
+      
+      const response = await apiClient.delete(`/lessons/${lessonId}`);
+      console.log('✅ Deleted lesson:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Delete lesson error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Duplicate lesson
+   * @param {string} lessonId - Lesson ID to duplicate
+   * @returns {Promise} API response
+   */
+  duplicate: async (lessonId) => {
+    console.log('📋 Duplicating lesson:', lessonId);
+    try {
+      if (!lessonId) {
+        throw new Error('Lesson ID is required');
+      }
+      
+      const response = await apiClient.post(`/lessons/${lessonId}/duplicate`);
+      console.log('✅ Duplicated lesson:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Duplicate lesson error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Toggle lesson publish status
+   * @param {string} lessonId - Lesson ID
+   * @param {boolean} isPublished - New published status
+   * @returns {Promise} API response
+   */
+  togglePublish: async (lessonId, isPublished) => {
+    console.log('🔄 Toggling lesson publish status:', lessonId, isPublished);
+    try {
+      if (!lessonId) {
+        throw new Error('Lesson ID is required');
+      }
+      
+      if (typeof isPublished !== 'boolean') {
+        throw new Error('isPublished must be a boolean');
+      }
+      
+      const response = await apiClient.put(`/lessons/${lessonId}/toggle-publish`, { 
+        isPublished 
       });
-    }
-
-    html += `
-</body>
-</html>`;
-
-    return html;
-  },
-
-  // Convert EditorJS block to HTML
-  convertBlockToHTML: (block) => {
-    switch (block.type) {
-      case 'paragraph':
-        return `<p>${block.data.text || ''}</p>\n`;
-        
-      case 'header':
-        const level = block.data.level || 1;
-        return `<h${level}>${block.data.text || ''}</h${level}>\n`;
-        
-      case 'list':
-        const tag = block.data.style === 'ordered' ? 'ol' : 'ul';
-        const items = (block.data.items || []).map(item => `<li>${item}</li>`).join('\n');
-        return `<${tag}>\n${items}\n</${tag}>\n`;
-        
-      case 'code':
-        return `<pre><code>${block.data.code || ''}</code></pre>\n`;
-        
-      case 'quote':
-        const text = block.data.text || '';
-        const caption = block.data.caption ? `<cite>${block.data.caption}</cite>` : '';
-        return `<blockquote>${text}${caption}</blockquote>\n`;
-        
-      case 'image':
-        const url = block.data.file?.url || block.data.url || '';
-        const alt = block.data.caption || block.data.alt || '';
-        return `<img src="${url}" alt="${alt}" />\n`;
-        
-      case 'table':
-        if (!block.data.content || !Array.isArray(block.data.content)) return '';
-        let tableHTML = '<table>\n';
-        block.data.content.forEach((row, index) => {
-          const tag = index === 0 ? 'th' : 'td';
-          const cells = row.map(cell => `<${tag}>${cell}</${tag}>`).join('');
-          tableHTML += `<tr>${cells}</tr>\n`;
-        });
-        tableHTML += '</table>\n';
-        return tableHTML;
-        
-      case 'delimiter':
-        return '<div class="delimiter">* * *</div>\n';
-        
-      case 'embed':
-        return `<div class="embed">${block.data.embed || ''}</div>\n`;
-        
-      default:
-        return `<!-- Unknown block type: ${block.type} -->\n`;
+      console.log('✅ Toggled lesson status:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Toggle lesson status error:', error);
+      throw error;
     }
   },
 
-  // Convert EditorJS content to plain text
-  convertToText: (lessonData) => {
-    let text = `${lessonData.title}\n${'='.repeat(lessonData.title.length)}\n\n`;
-    text += `Duration: ${lessonData.duration} minutes\n`;
-    text += `Order: #${lessonData.order}\n`;
-    text += `Status: ${lessonData.isPublished ? 'Published' : 'Draft'}\n\n`;
-    text += `${'-'.repeat(50)}\n\n`;
+  /**
+   * Export lesson in different formats
+   * @param {string} lessonId - Lesson ID
+   * @param {string} format - Export format (json, html, text)
+   * @returns {Promise} API response
+   */
+  export: async (lessonId, format = 'json') => {
+    console.log('📤 Exporting lesson:', lessonId, 'as', format);
+    try {
+      if (!lessonId) {
+        throw new Error('Lesson ID is required');
+      }
+      
+      const validFormats = ['json', 'html', 'text'];
+      if (!validFormats.includes(format)) {
+        throw new Error(`Invalid format. Must be one of: ${validFormats.join(', ')}`);
+      }
+      
+      const response = await apiClient.get(`/lessons/${lessonId}/export?format=${format}`);
+      console.log('✅ Exported lesson:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Export lesson error:', error);
+      throw error;
+    }
+  },
 
-    if (lessonData.content && lessonData.content.blocks) {
-      lessonData.content.blocks.forEach(block => {
-        text += lessonAPI.convertBlockToText(block);
+  /**
+   * Reorder lessons within a tutorial
+   * @param {string} tutorialId - Tutorial ID
+   * @param {Array} lessonOrders - Array of {lessonId, order} objects
+   * @returns {Promise} API response
+   */
+  reorder: async (tutorialId, lessonOrders) => {
+    console.log('🔄 Reordering lessons in tutorial:', tutorialId);
+    console.log('📝 New order:', lessonOrders);
+    try {
+      if (!tutorialId) {
+        throw new Error('Tutorial ID is required');
+      }
+      
+      if (!Array.isArray(lessonOrders)) {
+        throw new Error('lessonOrders must be an array');
+      }
+      
+      if (lessonOrders.length === 0) {
+        throw new Error('lessonOrders array cannot be empty');
+      }
+      
+      // Validate lessonOrders structure
+      lessonOrders.forEach((item, index) => {
+        if (!item.lessonId || !item.order) {
+          throw new Error(`Invalid lessonOrders item at index ${index}. Must have lessonId and order properties.`);
+        }
+        if (typeof item.order !== 'number' || item.order < 1) {
+          throw new Error(`Invalid order at index ${index}. Order must be a positive number.`);
+        }
       });
+      
+      const response = await apiClient.put(`/tutorials/${tutorialId}/lessons/reorder`, {
+        lessonOrders
+      });
+      console.log('✅ Reordered lessons:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Reorder lessons error:', error);
+      throw error;
     }
-
-    return text;
   },
 
-  // Convert EditorJS block to plain text
-  convertBlockToText: (block) => {
-    switch (block.type) {
-      case 'paragraph':
-        return `${block.data.text?.replace(/<[^>]*>/g, '') || ''}\n\n`;
-        
-      case 'header':
-        const text = block.data.text?.replace(/<[^>]*>/g, '') || '';
-        const level = block.data.level || 1;
-        const underline = ['=', '-', '~', '^', '+', '*'][level - 1] || '-';
-        return `${text}\n${underline.repeat(text.length)}\n\n`;
-        
-      case 'list':
-        const items = (block.data.items || []).map((item, index) => {
-          const cleanItem = item.replace(/<[^>]*>/g, '');
-          return block.data.style === 'ordered' 
-            ? `${index + 1}. ${cleanItem}` 
-            : `• ${cleanItem}`;
-        }).join('\n');
-        return `${items}\n\n`;
-        
-      case 'code':
-        return `\`\`\`\n${block.data.code || ''}\n\`\`\`\n\n`;
-        
-      case 'quote':
-        const quoteText = block.data.text?.replace(/<[^>]*>/g, '') || '';
-        const caption = block.data.caption ? `\n— ${block.data.caption}` : '';
-        return `> ${quoteText}${caption}\n\n`;
-        
-      case 'image':
-        const alt = block.data.caption || block.data.alt || 'Image';
-        return `[${alt}]\n\n`;
-        
-      case 'table':
-        if (!block.data.content || !Array.isArray(block.data.content)) return '';
-        let tableText = '';
-        block.data.content.forEach((row, rowIndex) => {
-          tableText += row.join(' | ') + '\n';
-          if (rowIndex === 0) {
-            tableText += row.map(() => '---').join(' | ') + '\n';
-          }
-        });
-        return `${tableText}\n`;
-        
-      case 'delimiter':
-        return '* * *\n\n';
-        
-      default:
-        return '';
+  /**
+   * Get next available order number for a tutorial
+   * @param {string} tutorialId - Tutorial ID
+   * @returns {Promise<number>} Next order number
+   */
+  getNextOrder: async (tutorialId) => {
+    console.log('🔢 Getting next order for tutorial:', tutorialId);
+    try {
+      if (!tutorialId) {
+        throw new Error('Tutorial ID is required');
+      }
+      
+      const response = await lessonAPI.getByTutorial(tutorialId);
+      
+      if (response.success && response.data.length > 0) {
+        const maxOrder = Math.max(...response.data.map(lesson => lesson.order || 0));
+        return maxOrder + 1;
+      }
+      
+      return 1; // First lesson
+    } catch (error) {
+      console.error('❌ Get next order error:', error);
+      // Return 1 as fallback
+      return 1;
+    }
+  },
+
+  /**
+   * Bulk update lessons
+   * @param {Array} updates - Array of {lessonId, updates} objects
+   * @returns {Promise} Array of API responses
+   */
+  bulkUpdate: async (updates) => {
+    console.log('📝 Bulk updating lessons:', updates);
+    try {
+      if (!Array.isArray(updates)) {
+        throw new Error('Updates must be an array');
+      }
+      
+      const promises = updates.map(({ lessonId, updates: lessonUpdates }) => 
+        lessonAPI.update(lessonId, lessonUpdates)
+      );
+      
+      const results = await Promise.allSettled(promises);
+      console.log('✅ Bulk update results:', results);
+      return results;
+    } catch (error) {
+      console.error('❌ Bulk update error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Search lessons across all tutorials
+   * @param {string} query - Search query
+   * @param {Object} filters - Additional filters
+   * @returns {Promise} API response
+   */
+  search: async (query, filters = {}) => {
+    console.log('🔍 Searching lessons:', query, filters);
+    try {
+      const params = {
+        search: query,
+        ...filters
+      };
+      
+      return await lessonAPI.getAll(params);
+    } catch (error) {
+      console.error('❌ Search lessons error:', error);
+      throw error;
     }
   }
 };
