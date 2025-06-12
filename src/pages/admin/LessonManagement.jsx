@@ -59,12 +59,17 @@ const LessonManagement = () => {
   };
   
   const fetchLessons = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      
-      // If a specific tutorial is selected, fetch lessons for that tutorial
-      if (selectedTutorial) {
+  try {
+    setIsLoading(true);
+    setError(null);
+    
+    console.log('🔍 Fetching lessons...');
+    console.log('Selected tutorial:', selectedTutorial);
+    
+    // If a specific tutorial is selected, fetch lessons for that tutorial
+    if (selectedTutorial) {
+      console.log(`📚 Fetching lessons for tutorial: ${selectedTutorial}`);
+      try {
         const response = await lessonAPI.getByTutorial(selectedTutorial);
         
         if (response.success) {
@@ -73,18 +78,35 @@ const LessonManagement = () => {
         } else {
           throw new Error(response.message || 'Failed to fetch lessons');
         }
-      } else {
-        // Otherwise, fetch all lessons with pagination
-        const params = {
-          page: pagination.page,
-          limit: 10
-        };
+      } catch (tutorialError) {
+        console.error('❌ Tutorial lessons error:', tutorialError);
         
-        if (searchQuery.trim()) {
-          params.search = searchQuery.trim();
+        // Handle specific tutorial errors
+        if (tutorialError.response?.status === 404) {
+          setError('Tutorial not found or has no lessons yet.');
+        } else {
+          setError('Failed to load lessons for this tutorial.');
         }
-        
+        setLessons([]);
+        return;
+      }
+    } else {
+      // Otherwise, fetch all lessons with pagination (admin only)
+      console.log('📋 Fetching all lessons...');
+      const params = {
+        page: pagination.page,
+        limit: 10
+      };
+      
+      if (searchQuery.trim()) {
+        params.search = searchQuery.trim();
+      }
+      
+      console.log('📤 Request params:', params);
+      
+      try {
         const response = await lessonAPI.getAll(params);
+        console.log('📥 Response:', response);
         
         if (response.success) {
           setLessons(response.data || []);
@@ -92,15 +114,42 @@ const LessonManagement = () => {
         } else {
           throw new Error(response.message || 'Failed to fetch lessons');
         }
+      } catch (apiError) {
+        console.error('❌ API Error details:', apiError);
+        
+        // Handle specific error cases
+        if (apiError.response?.status === 404) {
+          setError('Lessons endpoint not available. Please check your backend configuration.');
+        } else if (apiError.response?.status === 401) {
+          setError('You must be logged in to view lessons.');
+        } else if (apiError.response?.status === 403) {
+          setError('You do not have permission to view all lessons. Admin access required.');
+        } else if (apiError.response?.status === 500) {
+          // Handle server errors more gracefully
+          const errorMsg = apiError.response.data?.error || apiError.message;
+          if (errorMsg.includes('type')) {
+            setError('Server error processing lesson data. This might be due to corrupted lesson content.');
+          } else {
+            setError(`Server error: ${errorMsg}`);
+          }
+        } else if (apiError.code === 'ECONNREFUSED') {
+          setError('Cannot connect to the server. Please ensure the backend is running.');
+        } else {
+          setError(apiError.response?.data?.message || apiError.message || 'Failed to load lessons');
+        }
+        
+        setLessons([]);
+        return;
       }
-    } catch (err) {
-      console.error('Error fetching lessons:', err);
-      setError(err.message || 'Failed to load lessons. Please try again.');
-      setLessons([]);
-    } finally {
-      setIsLoading(false);
     }
-  };
+  } catch (err) {
+    console.error('❌ Unexpected error fetching lessons:', err);
+    setError('An unexpected error occurred while loading lessons.');
+    setLessons([]);
+  } finally {
+    setIsLoading(false);
+  }
+};
   
   // Handle tutorial filter change
   const handleTutorialChange = (tutorialId) => {
@@ -423,26 +472,39 @@ const LessonManagement = () => {
           <p className="mt-2 text-gray-500">Loading lessons...</p>
         </div>
       ) : lessons.length === 0 ? (
-        <div className="bg-white p-8 rounded-md text-center">
-          <FileText size={48} className="mx-auto text-gray-300 mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-1">No lessons found</h3>
-          <p className="text-gray-500 mb-4">
-            {searchQuery 
-              ? "No lessons match your search criteria." 
-              : selectedTutorial
-                ? "This tutorial doesn't have any lessons yet."
-                : "No lessons available."}
-          </p>
-          {selectedTutorial && (
-            <Link
-              to={`/admin/lessons/new?tutorialId=${selectedTutorial}`}
-              className="inline-flex items-center px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700"
-            >
-              <Plus size={16} className="mr-1" />
-              Add First Lesson
-            </Link>
-          )}
-        </div>
+  <div className="bg-white p-8 rounded-md text-center">
+    <FileText size={48} className="mx-auto text-gray-300 mb-4" />
+    <h3 className="text-lg font-medium text-gray-900 mb-2">
+      {searchQuery 
+        ? "No lessons match your search" 
+        : selectedTutorial
+          ? "No lessons in this tutorial yet"
+          : "No lessons found"}
+    </h3>
+    <p className="text-gray-500 mb-4">
+      {searchQuery 
+        ? `No lessons found for "${searchQuery}". Try adjusting your search terms.`
+        : selectedTutorial
+          ? "This tutorial doesn't have any lessons yet. Create the first lesson to get started."
+          : "No lessons have been created yet across all tutorials."}
+    </p>
+    {selectedTutorial && (
+      <Link
+        to={`/admin/lessons/new?tutorialId=${selectedTutorial}`}
+        className="inline-flex items-center px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700"
+      >
+        <Plus size={16} className="mr-1" />
+        Create First Lesson
+      </Link>
+    )}
+    {!selectedTutorial && (
+      <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+        <p className="text-sm text-blue-800">
+          💡 <strong>Tip:</strong> Select a tutorial from the filter above to view its lessons, or create a new tutorial first.
+        </p>
+      </div>
+    )}
+  </div>
       ) : (
         /* Lessons Table */
         <div className="bg-white rounded-lg shadow-sm overflow-hidden">

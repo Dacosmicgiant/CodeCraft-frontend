@@ -1,4 +1,4 @@
-// src/pages/admin/LessonEditor.jsx
+// src/pages/admin/LessonEditor.jsx - Updated to preserve content structure
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { 
@@ -100,12 +100,16 @@ const LessonEditor = () => {
       const response = await lessonAPI.getById(lessonId);
       const lesson = response.data;
       
+      console.log('📖 Loaded lesson with content:', lesson.content);
+      
       // Safely extract tutorial ID
       const tutorialId = lesson.tutorial?._id || lesson.tutorial || '';
       
-      // Ensure content is in EditorJS format
+      // Use content EXACTLY as stored in database - NO MODIFICATION
       let content = lesson.content;
-      if (!content || !content.blocks) {
+      
+      // Only provide fallback if content is completely missing
+      if (!content) {
         content = {
           time: Date.now(),
           blocks: [],
@@ -113,12 +117,14 @@ const LessonEditor = () => {
         };
       }
       
+      console.log('📦 Setting editor content:', content);
+      
       setFormData({
         title: lesson.title || '',
         order: lesson.order || 1,
         duration: lesson.duration || 10,
         tutorial: tutorialId,
-        content: content,
+        content: content, // PRESERVE EXACT STRUCTURE
         isPublished: lesson.isPublished || false
       });
       
@@ -157,6 +163,8 @@ const LessonEditor = () => {
   // Handle content changes from EditorJS
   const handleContentChange = (data) => {
     console.log('📝 Editor content changed:', data);
+    
+    // Store content EXACTLY as received from editor - NO MODIFICATION
     setFormData(prev => ({
       ...prev,
       content: data
@@ -174,9 +182,9 @@ const LessonEditor = () => {
         console.log('💾 Trying to save from editor...');
         const editorData = await editorRef.current.save();
         
-        if (editorData && editorData.blocks) {
+        if (editorData && typeof editorData === 'object') {
           console.log('✅ Got content from editor:', editorData);
-          return editorData;
+          return editorData; // Return EXACTLY as received
         } else {
           console.warn('⚠️ Editor returned invalid data, using fallback');
         }
@@ -203,7 +211,7 @@ const LessonEditor = () => {
         title: formData.title.trim(),
         order: parseInt(formData.order),
         duration: parseInt(formData.duration),
-        content: editorContent,
+        content: editorContent, // PRESERVE EXACT STRUCTURE
         isPublished: formData.isPublished
       };
       
@@ -254,29 +262,17 @@ const LessonEditor = () => {
     setSaveSuccess(false);
     
     try {
-      // Get current editor content with fallback
+      // Get current editor content
       const editorContent = await getEditorContent();
       
-      // Validate that we have valid content
-      if (!editorContent || typeof editorContent !== 'object') {
-        throw new Error('Invalid content format');
-      }
+      console.log('📤 Final content to send (NO MODIFICATION):', editorContent);
       
-      // Ensure content has the required structure
-      const finalContent = {
-        time: editorContent.time || Date.now(),
-        blocks: Array.isArray(editorContent.blocks) ? editorContent.blocks : [],
-        version: editorContent.version || "2.28.2"
-      };
-      
-      console.log('📤 Final content to send:', finalContent);
-      
-      // Prepare the lesson data
+      // Prepare the lesson data - PRESERVE EXACT CONTENT STRUCTURE
       const lessonData = {
         title: formData.title.trim(),
         order: parseInt(formData.order),
         duration: parseInt(formData.duration),
-        content: finalContent,
+        content: editorContent, // EXACT STRUCTURE - NO CHANGES
         isPublished: formData.isPublished
       };
       
