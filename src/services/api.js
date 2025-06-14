@@ -112,7 +112,99 @@ export const userAPI = {
   removeBookmark: (tutorialId) => api.delete(`/users/bookmarks/${tutorialId}`),
 };
 
-// Lesson API - Updated to use axios instead of fetch for consistency
+// Enhanced Media Validation API
+export const mediaAPI = {
+  // Validate image URL
+  validateImage: async (url) => {
+    try {
+      const response = await api.post('/lessons/validate-media', {
+        url,
+        type: 'image'
+      });
+      return response.data;
+    } catch (error) {
+      console.error('❌ Image validation error:', error);
+      throw new Error(error.response?.data?.message || 'Failed to validate image URL');
+    }
+  },
+
+  // Validate video/embed URL
+  validateEmbed: async (url) => {
+    try {
+      const response = await api.post('/lessons/validate-media', {
+        url,
+        type: 'embed'
+      });
+      return response.data;
+    } catch (error) {
+      console.error('❌ Embed validation error:', error);
+      throw new Error(error.response?.data?.message || 'Failed to validate embed URL');
+    }
+  },
+
+  // Extract YouTube video info
+  extractYouTubeInfo: (url) => {
+    const patterns = [
+      /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
+      /youtube\.com\/v\/([a-zA-Z0-9_-]{11})/,
+      /youtube\.com\/watch\?.*v=([a-zA-Z0-9_-]{11})/
+    ];
+    
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match && match[1]) {
+        return {
+          videoId: match[1],
+          embedUrl: `https://www.youtube.com/embed/${match[1]}`,
+          thumbnailUrl: `https://img.youtube.com/vi/${match[1]}/maxresdefault.jpg`,
+          originalUrl: url,
+          isValid: true
+        };
+      }
+    }
+    
+    return { isValid: false };
+  },
+
+  // Check if URL is a valid image
+  isValidImageUrl: (url) => {
+    if (!url || typeof url !== 'string') return false;
+    
+    try {
+      new URL(url);
+      
+      // Check for image file extensions
+      const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.bmp', '.ico'];
+      const hasImageExtension = imageExtensions.some(ext => 
+        url.toLowerCase().includes(ext)
+      );
+      
+      // Check for known image hosting domains
+      const imageDomains = [
+        'imgur.com', 'i.imgur.com',
+        'unsplash.com', 'images.unsplash.com',
+        'pixabay.com', 'cdn.pixabay.com',
+        'pexels.com', 'images.pexels.com',
+        'githubusercontent.com', 'raw.githubusercontent.com',
+        'cloudinary.com', 'res.cloudinary.com',
+        'amazonaws.com', 's3.amazonaws.com',
+        'googleusercontent.com'
+      ];
+      
+      const isFromImageDomain = imageDomains.some(domain => 
+        url.includes(domain)
+      );
+      
+      const isDataUrl = url.startsWith('data:image/');
+      
+      return hasImageExtension || isFromImageDomain || isDataUrl;
+    } catch {
+      return false;
+    }
+  }
+};
+
+// Enhanced Lesson API - Updated to use axios instead of fetch for consistency
 export const lessonAPI = {
   // Create lesson with EditorJS content
   create: async (tutorialId, lessonData) => {
@@ -241,7 +333,7 @@ export const lessonAPI = {
   // Toggle publish status
   togglePublish: async (lessonId, isPublished) => {
     try {
-      const response = await api.put(`/lessons/${lessonId}`, { isPublished });
+      const response = await api.put(`/lessons/${lessonId}/toggle-publish`, { isPublished });
       return response.data;
     } catch (error) {
       console.error('❌ Toggle publish error:', error);
@@ -260,157 +352,196 @@ export const lessonAPI = {
     }
   },
 
-  // Export lesson content - simplified to use your existing backend structure
+  // Export lesson content
   export: async (lessonId, format = 'json') => {
     try {
-      // Get the lesson first
-      const lesson = await lessonAPI.getById(lessonId);
-      
-      if (!lesson.success) {
-        throw new Error(lesson.message || 'Failed to fetch lesson');
-      }
-      
-      const lessonData = lesson.data;
-      let exportData;
-      
-      switch (format) {
-        case 'json':
-          exportData = JSON.stringify(lessonData, null, 2);
-          break;
-          
-        case 'html':
-          exportData = convertToHTML(lessonData);
-          break;
-          
-        case 'text':
-          exportData = convertToText(lessonData);
-          break;
-          
-        default:
-          throw new Error('Unsupported export format');
-      }
-      
-      return {
-        success: true,
-        data: exportData,
-        filename: `${lessonData.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.${format}`
-      };
+      const response = await api.get(`/lessons/${lessonId}/export`, {
+        params: { format }
+      });
+      return response.data;
     } catch (error) {
       console.error('❌ Export lesson error:', error);
-      return {
-        success: false,
-        message: error.message || 'Export failed'
-      };
+      throw new Error(error.response?.data?.message || 'Failed to export lesson');
+    }
+  },
+
+  // Validate media URL
+  validateMedia: async (url, type) => {
+    try {
+      console.log(`🔍 Validating ${type} URL:`, url);
+      const response = await api.post('/lessons/validate-media', { url, type });
+      console.log('✅ Media validation result:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Media validation error:', error);
+      throw new Error(error.response?.data?.message || 'Failed to validate media URL');
     }
   }
 };
 
-// Helper functions for lesson export
-const convertToHTML = (lessonData) => {
-  let html = `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${lessonData.title}</title>
-    <style>
-        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; line-height: 1.6; }
-        h1, h2, h3, h4, h5, h6 { color: #333; }
-        code { background: #f4f4f4; padding: 2px 4px; border-radius: 3px; }
-        pre { background: #f4f4f4; padding: 15px; border-radius: 5px; overflow-x: auto; }
-        blockquote { border-left: 4px solid #ddd; margin: 0; padding-left: 20px; font-style: italic; }
-        img { max-width: 100%; height: auto; }
-    </style>
-</head>
-<body>
-    <h1>${lessonData.title}</h1>
-    <div class="meta">
-        <p><strong>Duration:</strong> ${lessonData.duration} minutes</p>
-        <p><strong>Order:</strong> #${lessonData.order}</p>
-        <p><strong>Status:</strong> ${lessonData.isPublished ? 'Published' : 'Draft'}</p>
-    </div>
-    <hr>
-`;
+// Helper functions for media handling
+export const mediaHelpers = {
+  // Process YouTube URL for embedding
+  processYouTubeUrl: (url) => {
+    const patterns = [
+      /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
+      /youtube\.com\/v\/([a-zA-Z0-9_-]{11})/,
+      /youtube\.com\/watch\?.*v=([a-zA-Z0-9_-]{11})/
+    ];
+    
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match && match[1]) {
+        return {
+          isValid: true,
+          videoId: match[1],
+          embedUrl: `https://www.youtube.com/embed/${match[1]}`,
+          thumbnailUrl: `https://img.youtube.com/vi/${match[1]}/maxresdefault.jpg`,
+          originalUrl: url,
+          service: 'youtube'
+        };
+      }
+    }
+    
+    return { isValid: false, message: 'Invalid YouTube URL' };
+  },
 
-  if (lessonData.content && lessonData.content.blocks) {
-    lessonData.content.blocks.forEach(block => {
-      html += convertBlockToHTML(block);
-    });
-  }
+  // Process Vimeo URL for embedding
+  processVimeoUrl: (url) => {
+    const match = url.match(/vimeo\.com\/(?:video\/)?(\d+)/);
+    if (match) {
+      return {
+        isValid: true,
+        videoId: match[1],
+        embedUrl: `https://player.vimeo.com/video/${match[1]}`,
+        originalUrl: url,
+        service: 'vimeo'
+      };
+    }
+    
+    return { isValid: false, message: 'Invalid Vimeo URL' };
+  },
 
-  html += `
-</body>
-</html>`;
+  // Validate image URL
+  validateImageUrl: (url) => {
+    if (!url || typeof url !== 'string') {
+      return { isValid: false, message: 'URL is required' };
+    }
+    
+    try {
+      new URL(url);
+      
+      // Check for image file extensions
+      const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.bmp', '.ico'];
+      const hasImageExtension = imageExtensions.some(ext => 
+        url.toLowerCase().includes(ext)
+      );
+      
+      // Check for known image hosting domains
+      const imageDomains = [
+        'imgur.com', 'i.imgur.com',
+        'unsplash.com', 'images.unsplash.com',
+        'pixabay.com', 'cdn.pixabay.com',
+        'pexels.com', 'images.pexels.com',
+        'githubusercontent.com', 'raw.githubusercontent.com',
+        'cloudinary.com', 'res.cloudinary.com',
+        'amazonaws.com', 's3.amazonaws.com',
+        'googleusercontent.com',
+        'cdn.jsdelivr.net',
+        'cdnjs.cloudflare.com',
+        'wikimedia.org'
+      ];
+      
+      const isFromImageDomain = imageDomains.some(domain => 
+        url.includes(domain)
+      );
+      
+      const isDataUrl = url.startsWith('data:image/');
+      
+      return {
+        isValid: hasImageExtension || isFromImageDomain || isDataUrl,
+        hasExtension: hasImageExtension,
+        isFromTrustedDomain: isFromImageDomain,
+        isDataUrl: isDataUrl,
+        message: hasImageExtension || isFromImageDomain || isDataUrl
+          ? 'Valid image URL' 
+          : 'URL should point to an image file or be from a trusted image hosting service'
+      };
+    } catch (error) {
+      return {
+        isValid: false,
+        hasExtension: false,
+        isFromTrustedDomain: false,
+        isDataUrl: false,
+        message: 'Invalid URL format'
+      };
+    }
+  },
 
-  return html;
-};
+  // Generate EditorJS image block
+  createImageBlock: (url, caption = '', alt = '') => {
+    return {
+      id: `block_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      type: 'image',
+      data: {
+        url: url,
+        caption: caption,
+        alt: alt || caption,
+        stretched: false,
+        withBorder: false,
+        withBackground: false
+      }
+    };
+  },
 
-const convertBlockToHTML = (block) => {
-  switch (block.type) {
-    case 'paragraph':
-      return `<p>${block.data.text || ''}</p>\n`;
-    case 'header':
-      const level = block.data.level || 1;
-      return `<h${level}>${block.data.text || ''}</h${level}>\n`;
-    case 'list':
-      const tag = block.data.style === 'ordered' ? 'ol' : 'ul';
-      const items = (block.data.items || []).map(item => `<li>${item}</li>`).join('\n');
-      return `<${tag}>\n${items}\n</${tag}>\n`;
-    case 'code':
-      return `<pre><code>${block.data.code || ''}</code></pre>\n`;
-    case 'quote':
-      const text = block.data.text || '';
-      const caption = block.data.caption ? `<cite>${block.data.caption}</cite>` : '';
-      return `<blockquote>${text}${caption}</blockquote>\n`;
-    case 'image':
-      const url = block.data.file?.url || block.data.url || '';
-      const alt = block.data.caption || block.data.alt || '';
-      return `<img src="${url}" alt="${alt}" />\n`;
-    default:
-      return `<!-- Unknown block type: ${block.type} -->\n`;
-  }
-};
-
-const convertToText = (lessonData) => {
-  let text = `${lessonData.title}\n${'='.repeat(lessonData.title.length)}\n\n`;
-  text += `Duration: ${lessonData.duration} minutes\n`;
-  text += `Order: #${lessonData.order}\n`;
-  text += `Status: ${lessonData.isPublished ? 'Published' : 'Draft'}\n\n`;
-  text += `${'-'.repeat(50)}\n\n`;
-
-  if (lessonData.content && lessonData.content.blocks) {
-    lessonData.content.blocks.forEach(block => {
-      text += convertBlockToText(block);
-    });
-  }
-
-  return text;
-};
-
-const convertBlockToText = (block) => {
-  switch (block.type) {
-    case 'paragraph':
-      return `${block.data.text?.replace(/<[^>]*>/g, '') || ''}\n\n`;
-    case 'header':
-      const text = block.data.text?.replace(/<[^>]*>/g, '') || '';
-      return `${text}\n${'-'.repeat(text.length)}\n\n`;
-    case 'list':
-      const items = (block.data.items || []).map((item, index) => {
-        const cleanItem = item.replace(/<[^>]*>/g, '');
-        return block.data.style === 'ordered' 
-          ? `${index + 1}. ${cleanItem}` 
-          : `• ${cleanItem}`;
-      }).join('\n');
-      return `${items}\n\n`;
-    case 'code':
-      return `\`\`\`\n${block.data.code || ''}\n\`\`\`\n\n`;
-    case 'quote':
-      const quoteText = block.data.text?.replace(/<[^>]*>/g, '') || '';
-      const caption = block.data.caption ? `\n— ${block.data.caption}` : '';
-      return `> ${quoteText}${caption}\n\n`;
-    default:
-      return '';
+  // Generate EditorJS embed block
+  createEmbedBlock: (url, service = 'youtube', caption = '') => {
+    let embedData = {};
+    
+    if (service === 'youtube') {
+      const ytData = mediaHelpers.processYouTubeUrl(url);
+      if (ytData.isValid) {
+        embedData = {
+          service: 'youtube',
+          url: ytData.originalUrl,
+          embed: ytData.embedUrl,
+          width: 560,
+          height: 315,
+          caption: caption,
+          videoId: ytData.videoId,
+          thumbnail: ytData.thumbnailUrl
+        };
+      }
+    } else if (service === 'vimeo') {
+      const vimeoData = mediaHelpers.processVimeoUrl(url);
+      if (vimeoData.isValid) {
+        embedData = {
+          service: 'vimeo',
+          url: vimeoData.originalUrl,
+          embed: vimeoData.embedUrl,
+          width: 640,
+          height: 360,
+          caption: caption,
+          videoId: vimeoData.videoId
+        };
+      }
+    } else {
+      // Generic embed
+      embedData = {
+        service: 'iframe',
+        url: url,
+        embed: url,
+        width: 800,
+        height: 600,
+        caption: caption
+      };
+    }
+    
+    return {
+      id: `block_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      type: 'embed',
+      data: embedData
+    };
   }
 };
 
@@ -422,51 +553,7 @@ export const exercisesAPI = {
   submit: (id, solution) => api.post(`/exercises/${id}/submit`, { solution }),
 };
 
-// Helper function to validate image URLs (keeping your existing function)
-export const validateImageUrl = (url) => {
-  try {
-    new URL(url);
-    
-    // Check for image file extensions
-    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'];
-    const hasImageExtension = imageExtensions.some(ext => 
-      url.toLowerCase().includes(ext)
-    );
-    
-    // Check for known image hosting domains
-    const imageDomains = [
-      'imgur.com', 'i.imgur.com',
-      'unsplash.com', 'images.unsplash.com',
-      'pixabay.com', 'cdn.pixabay.com',
-      'pexels.com', 'images.pexels.com',
-      'githubusercontent.com', 'raw.githubusercontent.com',
-      'cloudinary.com', 'res.cloudinary.com',
-      'amazonaws.com', 's3.amazonaws.com',
-      'googleusercontent.com',
-      'cdn.jsdelivr.net',
-      'cdnjs.cloudflare.com'
-    ];
-    
-    const isFromImageDomain = imageDomains.some(domain => 
-      url.includes(domain)
-    );
-    
-    return {
-      isValid: hasImageExtension || isFromImageDomain,
-      hasExtension: hasImageExtension,
-      isFromTrustedDomain: isFromImageDomain,
-      message: hasImageExtension || isFromImageDomain 
-        ? 'Valid image URL' 
-        : 'URL should point to an image file or be from a trusted image hosting service'
-    };
-  } catch (error) {
-    return {
-      isValid: false,
-      hasExtension: false,
-      isFromTrustedDomain: false,
-      message: 'Invalid URL format'
-    };
-  }
-};
+// Re-export the media validation function for backward compatibility
+export const validateImageUrl = mediaHelpers.validateImageUrl;
 
 export default api;
