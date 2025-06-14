@@ -12,7 +12,9 @@ import {
   ArrowRight,
   Bookmark,
   Loader,
-  AlertCircle
+  AlertCircle,
+  Play,
+  BarChart
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { tutorialAPI, domainAPI, technologyAPI, userAPI } from '../services/api';
@@ -484,7 +486,7 @@ const TutorialPage = () => {
         
         {/* Results Count */}
         <div className="mb-6 flex justify-between items-center">
-          <p className={`${COLORS.text.secondary}`}>
+          <p className={COLORS.text.secondary}>
             {isFiltering ? (
               <span className="flex items-center gap-2">
                 <Loader size={16} className="animate-spin" />
@@ -607,7 +609,7 @@ const TutorialCard = ({ tutorial, user, isBookmarked = false, progress = 0, onBo
     
     return { 
       icon: tutorial.technology?.name?.substring(0, 2).toUpperCase() || 'CODE', 
-      color: 'from-emerald-500 to-teal-600' 
+      color: COLORS.gradients.primary 
     };
   };
 
@@ -659,19 +661,19 @@ const TutorialCard = ({ tutorial, user, isBookmarked = false, progress = 0, onBo
           {tutorial.title}
         </h3>
         
-        <p className={`${COLORS.text.secondary} text-sm mb-4 leading-relaxed`}>
+        <p className={`${COLORS.text.secondary} text-sm mb-4 leading-relaxed line-clamp-3`}>
           {tutorial.description}
         </p>
         
         {/* Meta info */}
-        <div className="flex items-center justify-between text-xs mb-4">
-          <div className={`flex items-center gap-1 ${COLORS.text.tertiary}`}>
+        <div className={`flex items-center justify-between text-xs mb-4 ${COLORS.text.tertiary}`}>
+          <div className="flex items-center gap-1">
             <BookOpen size={14} />
             <span>{tutorial.lessons?.length || 0} lessons</span>
           </div>
-          <div className={`flex items-center gap-1 ${COLORS.text.tertiary}`}>
+          <div className="flex items-center gap-1">
             <Clock size={14} />
-            <span>~2 hours</span>
+            <span>{tutorial.estimatedTime || 30} min</span>
           </div>
         </div>
         
@@ -693,6 +695,7 @@ const TutorialCard = ({ tutorial, user, isBookmarked = false, progress = 0, onBo
         
         {/* Action */}
         <div className={`flex items-center ${COLORS.text.primary} font-medium text-sm group-hover:gap-2 transition-all duration-200`}>
+          <Play size={14} className="mr-1" />
           <span>{user && progress > 0 ? 'Continue Learning' : 'Start Learning'}</span>
           <ArrowRight size={16} className="ml-1 group-hover:translate-x-1 transition-transform duration-200" />
         </div>
