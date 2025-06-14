@@ -37,19 +37,6 @@ const Footer = () => {
           
           {/* Accordion Sections */}
           <div className="border-t border-gray-700">
-            <FooterAccordion 
-              title="Tutorials" 
-              isOpen={expandedSection === 'tutorials'} 
-              toggleOpen={() => toggleSection('tutorials')}
-            >
-              <ul className="space-y-2 py-2">
-                <FooterLink to="/tutorials/html">HTML</FooterLink>
-                <FooterLink to="/tutorials/css">CSS</FooterLink>
-                <FooterLink to="/tutorials/javascript">JavaScript</FooterLink>
-                <FooterLink to="/tutorials/react">React</FooterLink>
-                <FooterLink to="/tutorials/nodejs">Node.js</FooterLink>
-              </ul>
-            </FooterAccordion>
             
             <FooterAccordion 
               title="Company" 
@@ -89,16 +76,7 @@ const Footer = () => {
             </div>
             
             {/* Links */}
-            <div>
-              <h3 className="text-white font-medium mb-2">Tutorials</h3>
-              <ul className="space-y-2">
-                <FooterLink to="/tutorials/html">HTML</FooterLink>
-                <FooterLink to="/tutorials/css">CSS</FooterLink>
-                <FooterLink to="/tutorials/javascript">JavaScript</FooterLink>
-                <FooterLink to="/tutorials/react">React</FooterLink>
-                <FooterLink to="/tutorials/nodejs">Node.js</FooterLink>
-              </ul>
-            </div>
+
             
             <div>
               <h3 className="text-white font-medium mb-2">Company</h3>
@@ -117,11 +95,6 @@ const Footer = () => {
           <p className="text-sm text-gray-400 text-center md:text-left">
             &copy; {new Date().getFullYear()} Shubhali's CodeCraft. All rights reserved.
           </p>
-          <div className="mt-4 md:mt-0 text-sm text-gray-400 flex gap-4">
-            <a href="#" className="hover:text-white">Privacy</a>
-            <a href="#" className="hover:text-white">Terms</a>
-            <a href="#" className="hover:text-white">Cookies</a>
-          </div>
         </div>
       </div>
     </footer>

@@ -1,519 +1,484 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { 
+  User, 
+  Mail, 
+  Calendar, 
+  MapPin, 
+  Edit, 
+  Save, 
+  X, 
+  Camera,
+  Award,
+  BookOpen,
+  Clock,
+  TrendingUp,
+  Loader,
+  CheckCircle,
+  AlertCircle,
+  Settings,
+  Shield
+} from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { userAPI } from '../services/api';
-import { User, Mail, Key, Bookmark, Award, Calendar, Clock, Edit, Save, AlertCircle, ArrowRight, Check, BookOpen } from 'lucide-react';
+import { COLORS } from '../constants/colors';
 
 const ProfilePage = () => {
-  const { user, setUser } = useAuth();
-  const [activeTab, setActiveTab] = useState('profile');
-  const [isEditing, setIsEditing] = useState(false);
+  const { user, isAuthenticated, updateUser } = useAuth();
+  const navigate = useNavigate();
+  
   const [profileData, setProfileData] = useState({
     username: '',
     email: '',
     bio: '',
     location: '',
-    websiteUrl: ''
+    website: '',
+    githubProfile: '',
+    linkedinProfile: ''
   });
-  
-  const [bookmarks, setBookmarks] = useState([]);
-  const [progress, setProgress] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [successMessage, setSuccessMessage] = useState('');
-  
-  // Fetch user profile data
+  const [editMode, setEditMode] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [stats, setStats] = useState({
+    completedTutorials: 0,
+    totalLearningTime: 0,
+    streak: 0,
+    certificates: 0
+  });
+
   useEffect(() => {
-    if (user) {
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+    fetchProfileData();
+  }, [isAuthenticated, navigate]);
+
+  const fetchProfileData = async () => {
+    try {
+      setIsLoading(true);
+      const [profileRes, statsRes] = await Promise.all([
+        userAPI.getProfile(),
+        userAPI.getStats()
+      ]);
+      
+      const profile = profileRes.data;
       setProfileData({
-        username: user.username || '',
-        email: user.email || '',
-        bio: user.bio || 'Web developer passionate about frontend technologies.',
-        location: user.location || 'San Francisco, CA',
-        websiteUrl: user.websiteUrl || 'https://johndoe.dev'
+        username: profile.username || '',
+        email: profile.email || '',
+        bio: profile.bio || '',
+        location: profile.location || '',
+        website: profile.website || '',
+        githubProfile: profile.githubProfile || '',
+        linkedinProfile: profile.linkedinProfile || ''
       });
-    }
-  }, [user]);
-  
-  // Fetch bookmarks
-const fetchBookmarks = async () => {
-  if (activeTab === 'bookmarks') {
-    try {
-      setIsLoading(true);
-      const response = await userAPI.getBookmarks();
-      setBookmarks(response.data || []);
+      
+      setStats(statsRes.data || stats);
     } catch (err) {
-      console.error('Error fetching bookmarks:', err);
-      // Handle the case where it might be an initial setup with no bookmarks
-      setBookmarks([]);
-      // Only show error if it's not just an empty response
-      if (err.response?.status !== 404) {
-        setError('Failed to load bookmarks. Please try again later.');
-      }
+      console.error('Error fetching profile data:', err);
+      setError('Failed to load profile data');
     } finally {
       setIsLoading(false);
     }
-  }
-};
-  
-  // Fetch progress
-const fetchProgress = async () => {
-  if (activeTab === 'progress') {
-    try {
-      setIsLoading(true);
-      const response = await userAPI.getProgress();
-      setProgress(response.data || []);
-    } catch (err) {
-      console.error('Error fetching progress:', err);
-      // Handle the case where it might be an initial setup with no progress
-      setProgress([]);
-      // Only show error if it's not just an empty response
-      if (err.response?.status !== 404) {
-        setError('Failed to load progress data. Please try again later.');
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  }
-};
-  
-  // Load data based on active tab
-  useEffect(() => {
-    setError(null);
-    
-    if (activeTab === 'bookmarks') {
-      fetchBookmarks();
-    } else if (activeTab === 'progress') {
-      fetchProgress();
-    }
-  }, [activeTab]);
-  
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setProfileData({
-      ...profileData,
-      [name]: value
-    });
   };
-  
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError(null);
-    setSuccessMessage('');
-    
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setProfileData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleSave = async () => {
     try {
-      setIsLoading(true);
+      setIsSaving(true);
+      setError('');
       
-      // Only send fields that are part of the API
-      const dataToUpdate = {
-        username: profileData.username,
-        email: profileData.email
-      };
+      await userAPI.updateProfile(profileData);
+      updateUser({ ...user, ...profileData });
       
-      // Add password only if provided in a real implementation
-      // if (profileData.password) {
-      //   dataToUpdate.password = profileData.password;
-      // }
+      setSuccess('Profile updated successfully!');
+      setEditMode(false);
       
-      const response = await userAPI.updateProfile(dataToUpdate);
-      
-      // Update the local user context with new data
-      setUser({
-        ...user,
-        username: response.data.username,
-        email: response.data.email
-      });
-      
-      setSuccessMessage('Profile updated successfully!');
-      setIsEditing(false);
+      setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       console.error('Error updating profile:', err);
-      setError(err.response?.data?.message || 'Failed to update profile. Please try again.');
+      setError(err.response?.data?.message || 'Failed to update profile');
     } finally {
-      setIsLoading(false);
+      setIsSaving(false);
     }
   };
-  
+
+  const handleCancel = () => {
+    // Reset to original data
+    setProfileData({
+      username: user?.username || '',
+      email: user?.email || '',
+      bio: user?.bio || '',
+      location: user?.location || '',
+      website: user?.website || '',
+      githubProfile: user?.githubProfile || '',
+      linkedinProfile: user?.linkedinProfile || ''
+    });
+    setEditMode(false);
+    setError('');
+  };
+
+  const formatLearningTime = (minutes) => {
+    if (minutes < 60) return `${minutes} minutes`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours} hours`;
+    const days = Math.floor(hours / 24);
+    return `${days} days`;
+  };
+
+  if (!isAuthenticated) {
+    return null; // Will redirect to login
+  }
+
+  if (isLoading) {
+    return (
+      <div className={`min-h-screen ${COLORS.background.secondary} flex items-center justify-center`}>
+        <div className="text-center">
+          <Loader size={40} className={`animate-spin ${COLORS.text.primary} mb-4`} />
+          <p className={COLORS.text.secondary}>Loading your profile...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="p-4 md:p-6">
-      <div className="max-w-6xl mx-auto">
-        <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-          {/* Profile Header */}
-          <div className="bg-emerald-600 h-32 relative">
-            <div className="absolute -bottom-16 left-6">
-              <div className="w-32 h-32 bg-white rounded-full p-1">
-                <div className="w-full h-full bg-emerald-100 rounded-full flex items-center justify-center">
-                  <span className="text-3xl font-bold text-emerald-600">
-                    {profileData.username ? profileData.username.charAt(0).toUpperCase() : '?'}
-                  </span>
+    <div className={`min-h-screen ${COLORS.background.secondary}`}>
+      {/* Header */}
+      <div className={`${COLORS.background.white} py-8 px-4 sm:px-6 lg:px-8 shadow-sm`}>
+        <div className="max-w-6xl mx-auto">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-6">
+              {/* Profile Picture */}
+              <div className="relative">
+                <div className={`w-24 h-24 ${COLORS.background.primary} rounded-full flex items-center justify-center text-white text-2xl font-bold`}>
+                  {profileData.username.charAt(0).toUpperCase()}
+                </div>
+                <button className={`absolute bottom-0 right-0 w-8 h-8 ${COLORS.background.white} rounded-full border-2 ${COLORS.border.primary} flex items-center justify-center hover:${COLORS.background.tertiary} transition-colors`}>
+                  <Camera size={14} className={COLORS.text.primary} />
+                </button>
+              </div>
+              
+              {/* Basic Info */}
+              <div>
+                <h1 className={`text-3xl font-bold ${COLORS.text.dark}`}>{profileData.username}</h1>
+                <p className={`${COLORS.text.secondary} flex items-center gap-2 mt-1`}>
+                  <Mail size={16} />
+                  {profileData.email}
+                </p>
+                <p className={`${COLORS.text.tertiary} flex items-center gap-2 mt-1`}>
+                  <Calendar size={16} />
+                  Member since {new Date(user?.createdAt || Date.now()).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                </p>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center gap-3">
+              {!editMode ? (
+                <button
+                  onClick={() => setEditMode(true)}
+                  className={`flex items-center gap-2 px-4 py-2 ${COLORS.button.primary} rounded-lg transition-colors duration-200`}
+                >
+                  <Edit size={18} />
+                  Edit Profile
+                </button>
+              ) : (
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleCancel}
+                    className={`flex items-center gap-2 px-4 py-2 ${COLORS.button.secondary} rounded-lg transition-colors duration-200`}
+                  >
+                    <X size={18} />
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSave}
+                    disabled={isSaving}
+                    className={`flex items-center gap-2 px-4 py-2 ${COLORS.button.primary} rounded-lg transition-colors duration-200 disabled:opacity-50`}
+                  >
+                    {isSaving ? <Loader size={18} className="animate-spin" /> : <Save size={18} />}
+                    {isSaving ? 'Saving...' : 'Save Changes'}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Status Messages */}
+        {error && (
+          <div className={`${COLORS.status.error.bg} ${COLORS.border.secondary} border rounded-lg p-4 mb-6 flex items-center gap-3`}>
+            <AlertCircle size={20} className={COLORS.status.error.text} />
+            <span className={`${COLORS.status.error.text}`}>{error}</span>
+          </div>
+        )}
+
+        {success && (
+          <div className={`${COLORS.status.success.bg} ${COLORS.border.secondary} border rounded-lg p-4 mb-6 flex items-center gap-3`}>
+            <CheckCircle size={20} className={COLORS.status.success.text} />
+            <span className={`${COLORS.status.success.text}`}>{success}</span>
+          </div>
+        )}
+
+        <div className="grid lg:grid-cols-3 gap-8">
+          {/* Main Profile Information */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Personal Information */}
+            <div className={`${COLORS.background.white} rounded-xl shadow-sm p-6`}>
+              <h2 className={`text-xl font-semibold ${COLORS.text.dark} mb-6`}>Personal Information</h2>
+              
+              <div className="grid md:grid-cols-2 gap-6">
+                <div>
+                  <label className={`block text-sm font-medium ${COLORS.text.dark} mb-2`}>Username</label>
+                  {editMode ? (
+                    <input
+                      type="text"
+                      name="username"
+                      value={profileData.username}
+                      onChange={handleInputChange}
+                      className={`w-full px-3 py-2 ${COLORS.border.secondary} border rounded-lg ${COLORS.interactive.focus.outline} ${COLORS.interactive.focus.ring} ${COLORS.interactive.focus.border} transition-colors duration-200`}
+                    />
+                  ) : (
+                    <p className={`${COLORS.text.secondary} py-2`}>{profileData.username || 'Not provided'}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className={`block text-sm font-medium ${COLORS.text.dark} mb-2`}>Email</label>
+                  <p className={`${COLORS.text.secondary} py-2`}>{profileData.email}</p>
+                  <p className={`text-xs ${COLORS.text.tertiary}`}>Email cannot be changed here</p>
+                </div>
+
+                <div>
+                  <label className={`block text-sm font-medium ${COLORS.text.dark} mb-2`}>Location</label>
+                  {editMode ? (
+                    <input
+                      type="text"
+                      name="location"
+                      value={profileData.location}
+                      onChange={handleInputChange}
+                      placeholder="City, Country"
+                      className={`w-full px-3 py-2 ${COLORS.border.secondary} border rounded-lg ${COLORS.interactive.focus.outline} ${COLORS.interactive.focus.ring} ${COLORS.interactive.focus.border} transition-colors duration-200`}
+                    />
+                  ) : (
+                    <p className={`${COLORS.text.secondary} py-2 flex items-center gap-2`}>
+                      <MapPin size={16} />
+                      {profileData.location || 'Not provided'}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className={`block text-sm font-medium ${COLORS.text.dark} mb-2`}>Website</label>
+                  {editMode ? (
+                    <input
+                      type="url"
+                      name="website"
+                      value={profileData.website}
+                      onChange={handleInputChange}
+                      placeholder="https://yourwebsite.com"
+                      className={`w-full px-3 py-2 ${COLORS.border.secondary} border rounded-lg ${COLORS.interactive.focus.outline} ${COLORS.interactive.focus.ring} ${COLORS.interactive.focus.border} transition-colors duration-200`}
+                    />
+                  ) : (
+                    <p className={`${COLORS.text.secondary} py-2`}>
+                      {profileData.website ? (
+                        <a href={profileData.website} target="_blank" rel="noopener noreferrer" className={`${COLORS.text.primary} hover:${COLORS.text.primaryHover}`}>
+                          {profileData.website}
+                        </a>
+                      ) : (
+                        'Not provided'
+                      )}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-6">
+                <label className={`block text-sm font-medium ${COLORS.text.dark} mb-2`}>Bio</label>
+                {editMode ? (
+                  <textarea
+                    name="bio"
+                    value={profileData.bio}
+                    onChange={handleInputChange}
+                    rows={4}
+                    placeholder="Tell us about yourself..."
+                    className={`w-full px-3 py-2 ${COLORS.border.secondary} border rounded-lg ${COLORS.interactive.focus.outline} ${COLORS.interactive.focus.ring} ${COLORS.interactive.focus.border} transition-colors duration-200 resize-none`}
+                  />
+                ) : (
+                  <p className={`${COLORS.text.secondary} py-2 leading-relaxed`}>
+                    {profileData.bio || 'No bio provided yet.'}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Social Profiles */}
+            <div className={`${COLORS.background.white} rounded-xl shadow-sm p-6`}>
+              <h2 className={`text-xl font-semibold ${COLORS.text.dark} mb-6`}>Social Profiles</h2>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className={`block text-sm font-medium ${COLORS.text.dark} mb-2`}>GitHub Profile</label>
+                  {editMode ? (
+                    <input
+                      type="url"
+                      name="githubProfile"
+                      value={profileData.githubProfile}
+                      onChange={handleInputChange}
+                      placeholder="https://github.com/yourusername"
+                      className={`w-full px-3 py-2 ${COLORS.border.secondary} border rounded-lg ${COLORS.interactive.focus.outline} ${COLORS.interactive.focus.ring} ${COLORS.interactive.focus.border} transition-colors duration-200`}
+                    />
+                  ) : (
+                    <p className={`${COLORS.text.secondary} py-2`}>
+                      {profileData.githubProfile ? (
+                        <a href={profileData.githubProfile} target="_blank" rel="noopener noreferrer" className={`${COLORS.text.primary} hover:${COLORS.text.primaryHover}`}>
+                          {profileData.githubProfile}
+                        </a>
+                      ) : (
+                        'Not provided'
+                      )}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className={`block text-sm font-medium ${COLORS.text.dark} mb-2`}>LinkedIn Profile</label>
+                  {editMode ? (
+                    <input
+                      type="url"
+                      name="linkedinProfile"
+                      value={profileData.linkedinProfile}
+                      onChange={handleInputChange}
+                      placeholder="https://linkedin.com/in/yourusername"
+                      className={`w-full px-3 py-2 ${COLORS.border.secondary} border rounded-lg ${COLORS.interactive.focus.outline} ${COLORS.interactive.focus.ring} ${COLORS.interactive.focus.border} transition-colors duration-200`}
+                    />
+                  ) : (
+                    <p className={`${COLORS.text.secondary} py-2`}>
+                      {profileData.linkedinProfile ? (
+                        <a href={profileData.linkedinProfile} target="_blank" rel="noopener noreferrer" className={`${COLORS.text.primary} hover:${COLORS.text.primaryHover}`}>
+                          {profileData.linkedinProfile}
+                        </a>
+                      ) : (
+                        'Not provided'
+                      )}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
           </div>
-          
-          <div className="pt-20 pb-6 px-6">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-              <div>
-                <h1 className="text-2xl font-bold">{profileData.username}</h1>
-                <p className="text-gray-600">{profileData.email}</p>
-              </div>
+
+          {/* Sidebar */}
+          <div className="space-y-6">
+            {/* Learning Stats */}
+            <div className={`${COLORS.background.white} rounded-xl shadow-sm p-6`}>
+              <h3 className={`text-lg font-semibold ${COLORS.text.dark} mb-4`}>Learning Stats</h3>
               
-              <div className="mt-4 md:mt-0 flex items-center gap-2">
-                {activeTab === 'profile' && !isEditing ? (
-                  <button
-                    onClick={() => setIsEditing(true)}
-                    className="px-4 py-2 flex items-center gap-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors"
-                  >
-                    <Edit size={16} />
-                    Edit Profile
-                  </button>
-                ) : null}
-              </div>
-            </div>
-          </div>
-          
-          {/* Success Message */}
-          {successMessage && (
-            <div className="mx-6 mb-4 p-3 bg-green-50 text-green-700 text-sm rounded-md flex items-start">
-              <Check size={18} className="mr-2 mt-0.5 flex-shrink-0" />
-              <span>{successMessage}</span>
-            </div>
-          )}
-          
-          {/* Error Message */}
-          {error && (
-            <div className="mx-6 mb-4 p-3 bg-red-50 text-red-700 text-sm rounded-md flex items-start">
-              <AlertCircle size={18} className="mr-2 mt-0.5 flex-shrink-0" />
-              <span>{error}</span>
-            </div>
-          )}
-          
-          {/* Navigation Tabs */}
-          <div className="border-t border-b">
-            <div className="flex space-x-4 px-6">
-              <NavTab 
-                active={activeTab === 'profile'} 
-                onClick={() => setActiveTab('profile')}
-                icon={<User size={16} />}
-                label="Profile"
-              />
-              <NavTab 
-                active={activeTab === 'progress'} 
-                onClick={() => setActiveTab('progress')}
-                icon={<Award size={16} />}
-                label="Progress"
-              />
-              <NavTab 
-                active={activeTab === 'bookmarks'} 
-                onClick={() => setActiveTab('bookmarks')}
-                icon={<Bookmark size={16} />}
-                label="Bookmarks"
-              />
-            </div>
-          </div>
-          
-          {/* Tab Content */}
-          <div className="p-6">
-            {/* Profile Tab */}
-            {activeTab === 'profile' && (
-              <div>
-                {isEditing ? (
-                  <form onSubmit={handleSubmit}>
-                    <div className="grid md:grid-cols-2 gap-6">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Username
-                        </label>
-                        <div className="relative">
-                          <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
-                            <User size={16} />
-                          </span>
-                          <input
-                            type="text"
-                            name="username"
-                            value={profileData.username}
-                            onChange={handleChange}
-                            className="w-full pl-10 pr-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                          />
-                        </div>
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Email
-                        </label>
-                        <div className="relative">
-                          <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
-                            <Mail size={16} />
-                          </span>
-                          <input
-                            type="email"
-                            name="email"
-                            value={profileData.email}
-                            onChange={handleChange}
-                            className="w-full pl-10 pr-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                          />
-                        </div>
-                      </div>
-                      
-                      <div className="md:col-span-2">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Bio
-                        </label>
-                        <textarea
-                          name="bio"
-                          value={profileData.bio}
-                          onChange={handleChange}
-                          rows={4}
-                          className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                        ></textarea>
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Location
-                        </label>
-                        <input
-                          type="text"
-                          name="location"
-                          value={profileData.location}
-                          onChange={handleChange}
-                          className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                        />
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Website
-                        </label>
-                        <input
-                          type="url"
-                          name="websiteUrl"
-                          value={profileData.websiteUrl}
-                          onChange={handleChange}
-                          className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                        />
-                      </div>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 ${COLORS.background.primaryLight} rounded-lg flex items-center justify-center`}>
+                      <BookOpen className={`${COLORS.text.primary}`} size={20} />
                     </div>
-                    
-                    <div className="flex justify-end mt-6 gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setIsEditing(false)}
-                        className="px-4 py-2 bg-gray-100 text-gray-800 rounded-md hover:bg-gray-200 transition-colors"
-                        disabled={isLoading}
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="submit"
-                        className="px-4 py-2 flex items-center gap-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors disabled:opacity-70"
-                        disabled={isLoading}
-                      >
-                        {isLoading ? 'Saving...' : (
-                          <>
-                            <Save size={16} />
-                            Save Changes
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </form>
-                ) : (
-                  <div className="space-y-6">
                     <div>
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">About</h3>
-                      <p className="text-gray-600">{profileData.bio}</p>
-                    </div>
-                    
-                    <div className="grid md:grid-cols-2 gap-4">
-                      <ProfileItem icon={<Mail size={16} />} label="Email" value={profileData.email} />
-                      <ProfileItem icon={<User size={16} />} label="Username" value={profileData.username} />
-                      <ProfileItem icon={<Award size={16} />} label="Experience" value="Intermediate" />
-                      <ProfileItem icon={<Calendar size={16} />} label="Joined" value="January 2023" />
+                      <p className={`font-medium ${COLORS.text.dark}`}>{stats.completedTutorials}</p>
+                      <p className={`text-sm ${COLORS.text.tertiary}`}>Completed</p>
                     </div>
                   </div>
-                )}
-              </div>
-            )}
-            
-            {/* Progress Tab */}
-            {activeTab === 'progress' && (
-              <div>
-                {isLoading ? (
-                  <div className="flex justify-center py-12">
-                    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-emerald-600"></div>
-                  </div>
-                ) : (
-                  <>
-                    <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                      <StatCard 
-                        icon={<BookOpen className="text-blue-500" />}
-                        label="Completed Tutorials"
-                        value={progress.length || "0"}
-                        color="bg-blue-50"
-                      />
-                      <StatCard 
-                        icon={<Award className="text-yellow-500" />}
-                        label="Completed Exercises"
-                        value={"0"}
-                        color="bg-yellow-50"
-                      />
-                      <StatCard 
-                        icon={<Calendar className="text-green-500" />}
-                        label="Current Streak"
-                        value={"0 days"}
-                        color="bg-green-50"
-                      />
-                      <StatCard 
-                        icon={<Clock className="text-purple-500" />}
-                        label="Total Time Spent"
-                        value={"0h 0m"}
-                        color="bg-purple-50"
-                      />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 ${COLORS.background.primaryLight} rounded-lg flex items-center justify-center`}>
+                      <Clock className={`${COLORS.text.primary}`} size={20} />
                     </div>
-                    
-                    <h3 className="text-lg font-medium text-gray-900 mb-4">Recent Activity</h3>
-                    
-                    {progress.length > 0 ? (
-                      <div className="border rounded-md overflow-hidden">
-                        <div className="px-4 py-3 bg-gray-50 border-b">
-                          <h4 className="font-medium text-gray-700">Progress Tracking</h4>
-                        </div>
-                        <div className="divide-y">
-                          {progress.map((item, index) => (
-                            <div key={index} className="py-3 px-4 flex justify-between items-center">
-                              <div>
-                                <h3 className="font-medium">{item.tutorial?.title || "Tutorial"}</h3>
-                                <div className="flex items-center text-sm text-gray-500">
-                                  <span>Progress: {item.completion}%</span>
-                                  <span className="mx-2">•</span>
-                                  <span>Last accessed: {new Date(item.lastAccessed).toLocaleDateString()}</span>
-                                </div>
-                              </div>
-                              <div className="w-24 bg-gray-200 rounded-full h-2.5">
-                                <div className="bg-emerald-600 h-2.5 rounded-full" style={{ width: `${item.completion}%` }}></div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="text-center py-12 border rounded-md bg-gray-50">
-                        <Award size={48} className="mx-auto text-gray-400 mb-4" />
-                        <h3 className="text-lg font-medium text-gray-900 mb-1">No progress yet</h3>
-                        <p className="text-gray-600 mb-4">
-                          Start learning tutorials to track your progress
-                        </p>
-                        <a
-                          href="/tutorials"
-                          className="inline-flex items-center gap-1 text-emerald-600 hover:text-emerald-700 font-medium"
-                        >
-                          Browse Tutorials
-                          <ArrowRight size={16} />
-                        </a>
-                      </div>
-                    )}
-                  </>
-                )}
+                    <div>
+                      <p className={`font-medium ${COLORS.text.dark}`}>{formatLearningTime(stats.totalLearningTime)}</p>
+                      <p className={`text-sm ${COLORS.text.tertiary}`}>Learning Time</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 ${COLORS.background.primaryLight} rounded-lg flex items-center justify-center`}>
+                      <TrendingUp className={`${COLORS.text.primary}`} size={20} />
+                    </div>
+                    <div>
+                      <p className={`font-medium ${COLORS.text.dark}`}>{stats.streak} days</p>
+                      <p className={`text-sm ${COLORS.text.tertiary}`}>Current Streak</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 ${COLORS.background.primaryLight} rounded-lg flex items-center justify-center`}>
+                      <Award className={`${COLORS.text.primary}`} size={20} />
+                    </div>
+                    <div>
+                      <p className={`font-medium ${COLORS.text.dark}`}>{stats.certificates}</p>
+                      <p className={`text-sm ${COLORS.text.tertiary}`}>Certificates</p>
+                    </div>
+                  </div>
+                </div>
               </div>
-            )}
-            
-            {/* Bookmarks Tab */}
-            {activeTab === 'bookmarks' && (
-              <div>
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Saved Tutorials</h3>
+            </div>
+
+            {/* Quick Actions */}
+            <div className={`${COLORS.background.white} rounded-xl shadow-sm p-6`}>
+              <h3 className={`text-lg font-semibold ${COLORS.text.dark} mb-4`}>Quick Actions</h3>
+              
+              <div className="space-y-3">
+                <button 
+                  onClick={() => navigate('/progress')}
+                  className={`w-full flex items-center gap-3 p-3 rounded-lg ${COLORS.interactive.hover.secondary} transition-colors text-left`}
+                >
+                  <TrendingUp className={`${COLORS.text.primary}`} size={18} />
+                  <span className={`${COLORS.text.secondary}`}>View Progress</span>
+                </button>
                 
-                {isLoading ? (
-                  <div className="flex justify-center py-12">
-                    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-emerald-600"></div>
-                  </div>
-                ) : bookmarks.length > 0 ? (
-                  <div className="space-y-3">
-                    {bookmarks.map((bookmark, index) => (
-                      <div 
-                        key={index}
-                        className="flex items-center justify-between p-4 border rounded-md hover:bg-gray-50"
-                      >
-                        <div className="flex items-center">
-                          <Bookmark size={18} className="text-emerald-500 mr-3" />
-                          <div>
-                            <h4 className="font-medium">{bookmark.title}</h4>
-                            <div className="text-sm text-gray-500">{bookmark.description}</div>
-                          </div>
-                        </div>
-                        <a
-                          href={`/tutorials/${bookmark.slug || bookmark._id}`}
-                          className="text-emerald-600 hover:text-emerald-700 font-medium text-sm"
-                        >
-                          View
-                        </a>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-12 border rounded-md bg-gray-50">
-                    <Bookmark size={48} className="mx-auto text-gray-400 mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-1">No bookmarks yet</h3>
-                    <p className="text-gray-600 mb-4">
-                      Save tutorials and exercises for easy access later.
-                    </p>
-                    <a
-                      href="/tutorials"
-                      className="inline-flex items-center gap-1 text-emerald-600 hover:text-emerald-700 font-medium"
-                    >
-                      Browse Tutorials
-                      <ArrowRight size={16} />
-                    </a>
-                  </div>
-                )}
+                <button 
+                  onClick={() => navigate('/bookmarks')}
+                  className={`w-full flex items-center gap-3 p-3 rounded-lg ${COLORS.interactive.hover.secondary} transition-colors text-left`}
+                >
+                  <BookOpen className={`${COLORS.text.primary}`} size={18} />
+                  <span className={`${COLORS.text.secondary}`}>My Bookmarks</span>
+                </button>
+                
+                <button 
+                  onClick={() => navigate('/settings')}
+                  className={`w-full flex items-center gap-3 p-3 rounded-lg ${COLORS.interactive.hover.secondary} transition-colors text-left`}
+                >
+                  <Settings className={`${COLORS.text.primary}`} size={18} />
+                  <span className={`${COLORS.text.secondary}`}>Account Settings</span>
+                </button>
+                
+                <button 
+                  onClick={() => navigate('/privacy')}
+                  className={`w-full flex items-center gap-3 p-3 rounded-lg ${COLORS.interactive.hover.secondary} transition-colors text-left`}
+                >
+                  <Shield className={`${COLORS.text.primary}`} size={18} />
+                  <span className={`${COLORS.text.secondary}`}>Privacy Settings</span>
+                </button>
               </div>
-            )}
+            </div>
           </div>
         </div>
       </div>
     </div>
   );
 };
-
-// Navigation Tab Component
-const NavTab = ({ active, onClick, icon, label }) => (
-  <button
-    onClick={onClick}
-    className={`flex items-center gap-1.5 py-4 px-3 text-sm font-medium border-b-2 transition-colors ${
-      active 
-        ? 'border-emerald-500 text-emerald-600' 
-        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-    }`}
-  >
-    {icon}
-    {label}
-  </button>
-);
-
-// Profile Item Component
-const ProfileItem = ({ icon, label, value }) => (
-  <div className="flex items-start">
-    <div className="mr-3 mt-1 text-gray-500">{icon}</div>
-    <div>
-      <h4 className="text-xs font-medium text-gray-500 uppercase">{label}</h4>
-      <p className="text-gray-900">{value}</p>
-    </div>
-  </div>
-);
-
-// Stat Card Component
-const StatCard = ({ icon, label, value, color }) => (
-  <div className={`${color} border rounded-md p-4`}>
-    <div className="flex items-center gap-3">
-      <div className="p-2 bg-white rounded-md shadow-sm">
-        {icon}
-      </div>
-      <div>
-        <p className="text-sm font-medium text-gray-600">{label}</p>
-        <p className="text-2xl font-bold">{value}</p>
-      </div>
-    </div>
-  </div>
-);
 
 export default ProfilePage;
