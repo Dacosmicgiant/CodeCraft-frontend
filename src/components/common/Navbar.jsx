@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { BookOpen, Menu, Search, X, User, ChevronDown } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
+import { COLORS } from '../../constants/colors';
 import scrollLock from './../../utils/scrollLock';
 
 const Navbar = ({ onMobileMenuToggle }) => {
@@ -94,16 +95,20 @@ const Navbar = ({ onMobileMenuToggle }) => {
 
   return (
     <header className={`fixed top-0 left-0 right-0 z-50 w-full transition-all duration-300 ${
-      isScrolled ? 'bg-emerald-600 shadow-md' : 'bg-emerald-600'
+      isScrolled 
+        ? `${COLORS.background.primary} shadow-lg backdrop-blur-md bg-opacity-95` 
+        : `${COLORS.background.primary}`
     }`}>
       <div className="max-w-7xl mx-auto">
         {/* Main navbar */}
         <div className="flex items-center justify-between h-16 px-4">
           {/* Logo */}
           <div className="flex items-center">
-            <Link to="/" className="flex items-center gap-2">
-              <BookOpen className="h-7 w-7 text-white flex-shrink-0" />
-              <span className="text-lg md:text-xl font-bold text-white">CodeCraft</span>
+            <Link to="/" className="flex items-center gap-2 group">
+              <BookOpen className={`h-7 w-7 ${COLORS.text.white} flex-shrink-0 transition-transform duration-200 group-hover:scale-110`} />
+              <span className={`text-lg md:text-xl font-bold ${COLORS.text.white} transition-colors duration-200`}>
+                CodeCraft
+              </span>
             </Link>
           </div>
           
@@ -114,17 +119,17 @@ const Navbar = ({ onMobileMenuToggle }) => {
                 <input
                   type="text"
                   placeholder="Search tutorials..."
-                  className="w-full py-2 pl-10 pr-4 text-gray-800 bg-white rounded-md focus:outline-none"
+                  className={`w-full py-2.5 pl-10 pr-4 ${COLORS.text.dark} ${COLORS.background.white} rounded-lg ${COLORS.interactive.focus.outline} ${COLORS.interactive.focus.ring} shadow-sm transition-all duration-200 hover:shadow-md`}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
-                <Search className="absolute left-3 top-2.5 text-gray-500" size={18} />
+                <Search className={`absolute left-3 top-3 ${COLORS.text.tertiary}`} size={18} />
               </div>
             </form>
           </div>
           
           {/* Desktop Navigation Links */}
-          <div className="hidden md:flex items-center gap-4">
+          <div className="hidden md:flex items-center gap-2">
             <NavLink to="/tutorials" active={isActive('/tutorials')}>
               Tutorials
             </NavLink>
@@ -133,53 +138,64 @@ const Navbar = ({ onMobileMenuToggle }) => {
               <div className="relative" ref={dropdownRef}>
                 <button 
                   onClick={toggleDropdown}
-                  className="flex items-center gap-2 px-3 py-1.5 text-white hover:bg-emerald-700 rounded-md"
+                  className={`flex items-center gap-2 px-4 py-2 ${COLORS.text.white} ${COLORS.interactive.hover.primary} rounded-lg transition-all duration-200 font-medium`}
                 >
-                  <User size={18} />
-                  <span>{user.username}</span>
-                  <ChevronDown size={16} className={`transform transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+                  <div className={`w-8 h-8 ${COLORS.background.white} ${COLORS.text.primary} rounded-full flex items-center justify-center font-bold text-sm`}>
+                    {user.username.charAt(0).toUpperCase()}
+                  </div>
+                  <span className="hidden lg:block">{user.username}</span>
+                  <ChevronDown size={16} className={`transform transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} />
                 </button>
                 {isDropdownOpen && (
-                  <div className="absolute right-0 w-48 py-2 mt-2 bg-white rounded-md shadow-xl z-10">
-                    <Link 
+                  <div className={`absolute right-0 w-52 py-2 mt-2 ${COLORS.background.white} rounded-xl shadow-xl border ${COLORS.border.secondary} z-10 backdrop-blur-sm`}>
+                    <div className="px-4 py-3 border-b border-gray-100">
+                      <p className={`font-medium ${COLORS.text.dark} text-sm`}>{user.username}</p>
+                      <p className={`${COLORS.text.tertiary} text-xs`}>{user.email}</p>
+                    </div>
+                    <DropdownLink 
                       to="/profile" 
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       onClick={() => setIsDropdownOpen(false)}
                     >
                       Profile
-                    </Link>
-                    <Link 
+                    </DropdownLink>
+                    <DropdownLink 
                       to="/progress" 
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       onClick={() => setIsDropdownOpen(false)}
                     >
                       Progress
-                    </Link>
-                    <Link 
+                    </DropdownLink>
+                    <DropdownLink 
                       to="/bookmarks" 
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       onClick={() => setIsDropdownOpen(false)}
                     >
                       Bookmarks
-                    </Link>
-                    <button
-                      onClick={() => {
-                        logout();
-                        setIsDropdownOpen(false);
-                      }}
-                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      Logout
-                    </button>
+                    </DropdownLink>
+                    <div className="border-t border-gray-100 mt-1 pt-1">
+                      <button
+                        onClick={() => {
+                          logout();
+                          setIsDropdownOpen(false);
+                        }}
+                        className={`block w-full text-left px-4 py-2 text-sm ${COLORS.status.error.text} ${COLORS.interactive.hover.secondary} transition-colors duration-200`}
+                      >
+                        Logout
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
             ) : (
-              <div className="flex items-center space-x-2">
-                <Link to="/login" className="px-3 py-1.5 text-white hover:bg-emerald-700 rounded-md">
+              <div className="flex items-center gap-3">
+                <Link 
+                  to="/login" 
+                  className={`px-4 py-2 ${COLORS.text.white} ${COLORS.interactive.hover.primary} rounded-lg transition-all duration-200 font-medium`}
+                >
                   Login
                 </Link>
-                <Link to="/register" className="px-3 py-1.5 bg-white text-emerald-600 hover:bg-gray-100 rounded-md">
+                <Link 
+                  to="/register" 
+                  className={`px-4 py-2 ${COLORS.background.white} ${COLORS.text.primary} ${COLORS.interactive.hover.secondary} rounded-lg transition-all duration-200 font-medium shadow-sm hover:shadow-md`}
+                >
                   Sign Up
                 </Link>
               </div>
@@ -187,44 +203,44 @@ const Navbar = ({ onMobileMenuToggle }) => {
           </div>
           
           {/* Mobile Navigation Controls */}
-          <div className="flex items-center gap-3 md:hidden">
+          <div className="flex items-center gap-2 md:hidden">
             {/* Mobile Search Button */}
             <button
               onClick={() => setIsMobileSearchOpen(!isMobileSearchOpen)}
-              className="p-2 text-white hover:bg-emerald-700 rounded-md"
+              className={`p-2.5 ${COLORS.text.white} ${COLORS.interactive.hover.primary} rounded-lg transition-all duration-200`}
               aria-label={isMobileSearchOpen ? "Close search" : "Open search"}
             >
-              <Search size={22} />
+              <Search size={20} />
             </button>
             
             {/* Mobile Menu Button */}
             <button
               onClick={toggleMobileMenu}
-              className="p-2 text-white hover:bg-emerald-700 rounded-md"
+              className={`p-2.5 ${COLORS.text.white} ${COLORS.interactive.hover.primary} rounded-lg transition-all duration-200`}
               aria-label={isOpen ? "Close menu" : "Open menu"}
             >
-              {isOpen ? <X size={24} /> : <Menu size={24} />}
+              {isOpen ? <X size={22} /> : <Menu size={22} />}
             </button>
           </div>
         </div>
         
         {/* Mobile Search Bar */}
         {isMobileSearchOpen && (
-          <div className="px-4 pb-3 md:hidden">
+          <div className="px-4 pb-4 md:hidden">
             <form onSubmit={handleSearch}>
               <div className="relative">
                 <input
                   type="text"
                   placeholder="Search tutorials..."
-                  className="w-full py-2 pl-10 pr-4 text-gray-800 bg-white rounded-md focus:outline-none"
+                  className={`w-full py-3 pl-10 pr-16 ${COLORS.text.dark} ${COLORS.background.white} rounded-lg ${COLORS.interactive.focus.outline} shadow-sm`}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   autoFocus
                 />
-                <Search className="absolute left-3 top-2.5 text-gray-500" size={18} />
+                <Search className={`absolute left-3 top-3.5 ${COLORS.text.tertiary}`} size={18} />
                 <button 
                   type="submit"
-                  className="absolute right-2 top-1.5 px-2 py-1 bg-emerald-600 text-white text-sm rounded"
+                  className={`absolute right-2 top-2 px-3 py-1.5 ${COLORS.background.primary} ${COLORS.text.white} text-sm rounded-md font-medium transition-colors duration-200 hover:bg-opacity-90`}
                 >
                   Search
                 </button>
@@ -236,79 +252,81 @@ const Navbar = ({ onMobileMenuToggle }) => {
       
       {/* Mobile Menu - Full screen overlay */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 bg-emerald-800 md:hidden mobile-menu-height" style={{top: '64px', width: '100vw', left: 0, right: 0}}>
-          <div className="flex flex-col h-full p-4 overflow-y-auto">
-            <nav className="flex flex-col gap-2">
-              <MobileNavLink to="/tutorials" active={isActive('/tutorials')}>
-                Tutorials
-              </MobileNavLink>
-              
-              <MobileNavLink to="/about" active={isActive('/about')}>
-                About
-              </MobileNavLink>
-              
-              <MobileNavLink to="/contact" active={isActive('/contact')}>
-                Contact
-              </MobileNavLink>
-              
-              <div className="border-t border-emerald-700 my-4"></div>
-              
-              {user ? (
-                <>
-                  <div className="bg-emerald-700 rounded-lg p-4 mb-4">
-                    <div className="flex items-center gap-3 mb-2">
-                      <div className="bg-white rounded-full w-10 h-10 flex items-center justify-center text-emerald-600 font-bold">
-                        {user.username.charAt(0).toUpperCase()}
-                      </div>
-                      <div>
-                        <div className="font-medium text-white">{user.username}</div>
-                        <div className="text-emerald-300 text-sm">{user.email}</div>
+        <div className="fixed inset-0 z-50 md:hidden" style={{top: '64px'}}>
+          <div className={`h-full ${COLORS.background.primary} backdrop-blur-md bg-opacity-95 overflow-y-auto`}>
+            <div className="flex flex-col h-full p-6">
+              <nav className="flex flex-col gap-2">
+                <MobileNavLink to="/tutorials" active={isActive('/tutorials')} onClick={toggleMobileMenu}>
+                  Tutorials
+                </MobileNavLink>
+                
+                <MobileNavLink to="/about" active={isActive('/about')} onClick={toggleMobileMenu}>
+                  About
+                </MobileNavLink>
+                
+                <MobileNavLink to="/contact" active={isActive('/contact')} onClick={toggleMobileMenu}>
+                  Contact
+                </MobileNavLink>
+                
+                <div className="border-t border-emerald-500 border-opacity-30 my-6"></div>
+                
+                {user ? (
+                  <>
+                    <div className={`${COLORS.background.primaryHover} rounded-xl p-6 mb-6`}>
+                      <div className="flex items-center gap-4 mb-2">
+                        <div className={`${COLORS.background.white} rounded-full w-12 h-12 flex items-center justify-center ${COLORS.text.primary} font-bold text-lg`}>
+                          {user.username.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <div className={`font-semibold ${COLORS.text.white} text-lg`}>{user.username}</div>
+                          <div className="text-emerald-200 text-sm">{user.email}</div>
+                        </div>
                       </div>
                     </div>
+                    
+                    <MobileNavLink to="/profile" active={isActive('/profile')} onClick={toggleMobileMenu}>
+                      Profile
+                    </MobileNavLink>
+                    
+                    <MobileNavLink to="/progress" active={isActive('/progress')} onClick={toggleMobileMenu}>
+                      Progress
+                    </MobileNavLink>
+                    
+                    <MobileNavLink to="/bookmarks" active={isActive('/bookmarks')} onClick={toggleMobileMenu}>
+                      Bookmarks
+                    </MobileNavLink>
+                    
+                    <button
+                      onClick={() => {
+                        logout();
+                        toggleMobileMenu();
+                      }}
+                      className={`mt-4 w-full text-left py-4 px-6 ${COLORS.background.white} ${COLORS.text.primary} rounded-xl font-semibold transition-all duration-200 hover:shadow-lg transform hover:-translate-y-0.5`}
+                    >
+                      Logout
+                    </button>
+                  </>
+                ) : (
+                  <div className="mt-auto flex flex-col gap-4">
+                    <Link
+                      to="/login"
+                      className={`w-full py-4 px-6 ${COLORS.background.primaryHover} ${COLORS.text.white} text-center rounded-xl font-semibold transition-all duration-200 hover:bg-opacity-80`}
+                      onClick={toggleMobileMenu}
+                    >
+                      Login
+                    </Link>
+                    
+                    <Link
+                      to="/register"
+                      className={`w-full py-4 px-6 ${COLORS.background.white} ${COLORS.text.primary} text-center rounded-xl font-semibold transition-all duration-200 hover:shadow-lg transform hover:-translate-y-0.5`}
+                      onClick={toggleMobileMenu}
+                    >
+                      Sign Up
+                    </Link>
                   </div>
-                  
-                  <MobileNavLink to="/profile" active={isActive('/profile')}>
-                    Profile
-                  </MobileNavLink>
-                  
-                  <MobileNavLink to="/progress" active={isActive('/progress')}>
-                    Progress
-                  </MobileNavLink>
-                  
-                  <MobileNavLink to="/bookmarks" active={isActive('/bookmarks')}>
-                    Bookmarks
-                  </MobileNavLink>
-                  
-                  <button
-                    onClick={() => {
-                      logout();
-                      toggleMobileMenu();
-                    }}
-                    className="mt-2 w-full text-left py-3 px-4 bg-white text-emerald-700 rounded-lg font-medium"
-                  >
-                    Logout
-                  </button>
-                </>
-              ) : (
-                <div className="mt-auto flex flex-col gap-3">
-                  <Link
-                    to="/login"
-                    className="w-full py-3 px-4 bg-emerald-700 text-white text-center rounded-lg font-medium hover:bg-emerald-600"
-                    onClick={toggleMobileMenu}
-                  >
-                    Login
-                  </Link>
-                  
-                  <Link
-                    to="/register"
-                    className="w-full py-3 px-4 bg-white text-emerald-700 text-center rounded-lg font-medium hover:bg-gray-100"
-                    onClick={toggleMobileMenu}
-                  >
-                    Sign Up
-                  </Link>
-                </div>
-              )}
-            </nav>
+                )}
+              </nav>
+            </div>
           </div>
         </div>
       )}
@@ -320,10 +338,10 @@ const Navbar = ({ onMobileMenuToggle }) => {
 const NavLink = ({ children, to, active }) => (
   <Link
     to={to}
-    className={`px-3 py-2 rounded-md text-sm font-medium ${
+    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
       active
-        ? 'bg-emerald-700 text-white'
-        : 'text-white hover:bg-emerald-700 hover:text-white'
+        ? `${COLORS.background.primaryHover} ${COLORS.text.white} shadow-md`
+        : `${COLORS.text.white} ${COLORS.interactive.hover.primary}`
     }`}
   >
     {children}
@@ -331,14 +349,26 @@ const NavLink = ({ children, to, active }) => (
 );
 
 // Mobile Navigation Link
-const MobileNavLink = ({ children, to, active }) => (
+const MobileNavLink = ({ children, to, active, onClick }) => (
   <Link
     to={to}
-    className={`py-3 px-4 rounded-lg text-base font-medium ${
+    onClick={onClick}
+    className={`py-4 px-6 rounded-xl text-lg font-medium transition-all duration-200 ${
       active
-        ? 'bg-emerald-700 text-white'
-        : 'text-white hover:bg-emerald-700'
+        ? `${COLORS.background.primaryHover} ${COLORS.text.white} shadow-lg`
+        : `${COLORS.text.white} hover:bg-white hover:bg-opacity-10`
     }`}
+  >
+    {children}
+  </Link>
+);
+
+// Dropdown Link Component
+const DropdownLink = ({ children, to, onClick }) => (
+  <Link 
+    to={to} 
+    className={`block px-4 py-2 text-sm ${COLORS.text.secondary} ${COLORS.interactive.hover.secondary} transition-colors duration-200`}
+    onClick={onClick}
   >
     {children}
   </Link>

@@ -7,20 +7,16 @@ import {
   Filter, 
   Star, 
   Clock, 
-  BarChart, 
-  Award,
   ChevronDown,
   X,
   ArrowRight,
-  Video,
   Bookmark,
-  Check,
   Loader,
   AlertCircle
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { tutorialAPI, domainAPI, technologyAPI, userAPI } from '../services/api';
-import TutorialCategories from '../components/tutorial/TutorialCategories';
+import { COLORS } from '../constants/colors';
 
 const TutorialPage = () => {
   const { user, isAuthenticated } = useAuth();
@@ -39,7 +35,7 @@ const TutorialPage = () => {
   const [selectedTechnology, setSelectedTechnology] = useState('all');
   const [selectedDifficulty, setSelectedDifficulty] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState('-createdAt'); // Default sort by newest
+  const [sortBy, setSortBy] = useState('-createdAt');
   
   // UI state
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -149,12 +145,10 @@ const TutorialPage = () => {
       
       // Handle both paginated and non-paginated responses
       if (data.tutorials && data.pagination) {
-        // Paginated response
         setTutorials(data.tutorials);
         setTotalPages(data.pagination.pages);
         setTotalTutorials(data.pagination.total);
       } else {
-        // Non-paginated response
         const tutorialsArray = data.tutorials || data;
         setTutorials(tutorialsArray);
         setTotalTutorials(tutorialsArray.length);
@@ -250,7 +244,6 @@ const TutorialPage = () => {
         ));
       } else {
         await userAPI.addBookmark(tutorialId);
-        // For simplicity, refetch bookmarks
         const bookmarksRes = await userAPI.getBookmarks();
         setUserBookmarks(bookmarksRes.data || []);
       }
@@ -261,470 +254,447 @@ const TutorialPage = () => {
   };
   
   return (
-    <div className="container-fluid px-4 py-6">
-      {/* Page Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">Tutorial Library</h1>
-        <p className="text-gray-600">
-          Learn coding with our collection of interactive tutorials and video lessons.
-        </p>
-      </div>
-      
-      {/* Search Bar */}
-      <div className="mb-6">
-        <div className="relative">
-          <input
-            type="text"
-            placeholder="Search for tutorials, topics, or keywords..."
-            className="w-full py-3 pl-10 pr-4 text-gray-700 bg-white border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-            value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              setCurrentPage(1); // Reset to first page when searching
-            }}
-            disabled={isLoading}
-          />
-          <Search className="absolute left-3 top-3.5 text-gray-400" size={20} />
-          {searchQuery && (
-            <button
-              onClick={() => {
-                setSearchQuery('');
+    <div className={`min-h-screen ${COLORS.background.secondary}`}>
+      {/* Hero Section */}
+      <div className={`${COLORS.background.white} py-16 px-4 sm:px-6 lg:px-8`}>
+        <div className="max-w-6xl mx-auto text-center">
+          <h1 className={`text-3xl md:text-4xl font-bold ${COLORS.text.dark} mb-4`}>
+            Tutorial Library
+          </h1>
+          <p className={`text-lg ${COLORS.text.secondary} max-w-2xl mx-auto mb-8`}>
+            Discover our comprehensive collection of interactive programming tutorials designed to help you master coding skills.
+          </p>
+          
+          {/* Search Bar */}
+          <div className="max-w-2xl mx-auto relative">
+            <input
+              type="text"
+              placeholder="Search tutorials, topics, or technologies..."
+              className={`w-full py-4 pl-12 pr-12 text-lg ${COLORS.background.white} ${COLORS.border.secondary} border-2 rounded-xl ${COLORS.interactive.focus.outline} ${COLORS.interactive.focus.ring} shadow-sm transition-all duration-200 hover:shadow-md`}
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
                 setCurrentPage(1);
               }}
-              className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600"
-            >
-              <X size={18} />
-            </button>
-          )}
+              disabled={isLoading}
+            />
+            <Search className={`absolute left-4 top-5 ${COLORS.text.tertiary}`} size={24} />
+            {searchQuery && (
+              <button
+                onClick={() => {
+                  setSearchQuery('');
+                  setCurrentPage(1);
+                }}
+                className={`absolute right-4 top-5 ${COLORS.text.tertiary} hover:${COLORS.text.secondary} transition-colors`}
+              >
+                <X size={20} />
+              </button>
+            )}
+          </div>
         </div>
       </div>
-      
-      {/* Filter and Sort Bar */}
-      <div className="mb-6 flex flex-wrap gap-4 items-center justify-between">
-        <div className="flex flex-wrap gap-2">
-          {/* Domain Filter */}
-          <div className="relative">
-            <button
-              onClick={() => toggleFilterMenu('domain')}
-              className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-medium ${
-                selectedDomain !== 'all' 
-                  ? 'bg-emerald-100 text-emerald-700 border-2 border-emerald-500' 
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200'
-              }`}
-              disabled={isLoading || domains.length === 0}
-            >
-              <span>
-                {selectedDomain === 'all' 
-                  ? 'All Domains' 
-                  : domains.find(d => d._id === selectedDomain)?.name || 'Domain'}
-              </span>
-              <ChevronDown size={16} className={`transition-transform ${activeFilter === 'domain' && isFilterOpen ? 'rotate-180' : ''}`} />
-            </button>
-            
-            {activeFilter === 'domain' && isFilterOpen && (
-              <div className="absolute z-20 mt-1 w-48 bg-white border rounded-md shadow-lg">
-                <div className="p-2 max-h-60 overflow-y-auto">
-                  <div 
-                    className={`px-3 py-2 rounded-md cursor-pointer ${selectedDomain === 'all' ? 'bg-emerald-100 text-emerald-700' : 'hover:bg-gray-100'}`}
-                    onClick={() => {
-                      setSelectedDomain('all');
-                      setCurrentPage(1);
-                      setIsFilterOpen(false);
-                    }}
-                  >
-                    All Domains
+
+      {/* Main Content */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Filter Bar */}
+        <div className="mb-8">
+          <div className="flex flex-wrap gap-3 items-center justify-between">
+            <div className="flex flex-wrap gap-3">
+              {/* Domain Filter */}
+              <div className="relative">
+                <button
+                  onClick={() => toggleFilterMenu('domain')}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                    selectedDomain !== 'all' 
+                      ? `${COLORS.background.primary} ${COLORS.text.white} shadow-md` 
+                      : `${COLORS.background.white} ${COLORS.text.secondary} ${COLORS.border.secondary} border hover:${COLORS.background.tertiary}`
+                  }`}
+                  disabled={isLoading || domains.length === 0}
+                >
+                  <span>
+                    {selectedDomain === 'all' 
+                      ? 'All Domains' 
+                      : domains.find(d => d._id === selectedDomain)?.name || 'Domain'}
+                  </span>
+                  <ChevronDown size={16} className={`transition-transform ${activeFilter === 'domain' && isFilterOpen ? 'rotate-180' : ''}`} />
+                </button>
+                
+                {activeFilter === 'domain' && isFilterOpen && (
+                  <div className={`absolute z-20 mt-2 w-64 ${COLORS.background.white} ${COLORS.border.secondary} border rounded-xl shadow-xl`}>
+                    <div className="p-2 max-h-60 overflow-y-auto">
+                      <div 
+                        className={`px-3 py-2 rounded-lg cursor-pointer transition-colors ${selectedDomain === 'all' ? `${COLORS.background.primaryLight} ${COLORS.text.primary}` : `hover:${COLORS.background.tertiary}`}`}
+                        onClick={() => {
+                          setSelectedDomain('all');
+                          setCurrentPage(1);
+                          setIsFilterOpen(false);
+                        }}
+                      >
+                        All Domains
+                      </div>
+                      {domains.map(domain => (
+                        <div 
+                          key={domain._id}
+                          className={`px-3 py-2 rounded-lg cursor-pointer transition-colors ${selectedDomain === domain._id ? `${COLORS.background.primaryLight} ${COLORS.text.primary}` : `hover:${COLORS.background.tertiary}`}`}
+                          onClick={() => {
+                            setSelectedDomain(domain._id);
+                            setCurrentPage(1);
+                            setIsFilterOpen(false);
+                          }}
+                        >
+                          {domain.name}
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  {domains.map(domain => (
-                    <div 
-                      key={domain._id}
-                      className={`px-3 py-2 rounded-md cursor-pointer ${selectedDomain === domain._id ? 'bg-emerald-100 text-emerald-700' : 'hover:bg-gray-100'}`}
-                      onClick={() => {
-                        setSelectedDomain(domain._id);
-                        setCurrentPage(1);
-                        setIsFilterOpen(false);
-                      }}
-                    >
-                      {domain.name}
-                    </div>
-                  ))}
-                </div>
+                )}
               </div>
-            )}
-          </div>
-          
-          {/* Technology Filter */}
-          <div className="relative">
-            <button
-              onClick={() => toggleFilterMenu('technology')}
-              className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-medium ${
-                selectedTechnology !== 'all' 
-                  ? 'bg-emerald-100 text-emerald-700 border-2 border-emerald-500' 
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200'
-              }`}
-              disabled={isLoading || technologies.length === 0}
-            >
-              <span>
-                {selectedTechnology === 'all' 
-                  ? 'All Technologies' 
-                  : technologies.find(t => t._id === selectedTechnology)?.name || 'Technology'}
-              </span>
-              <ChevronDown size={16} className={`transition-transform ${activeFilter === 'technology' && isFilterOpen ? 'rotate-180' : ''}`} />
-            </button>
-            
-            {activeFilter === 'technology' && isFilterOpen && (
-              <div className="absolute z-20 mt-1 w-48 bg-white border rounded-md shadow-lg">
-                <div className="p-2 max-h-60 overflow-y-auto">
-                  <div 
-                    className={`px-3 py-2 rounded-md cursor-pointer ${selectedTechnology === 'all' ? 'bg-emerald-100 text-emerald-700' : 'hover:bg-gray-100'}`}
-                    onClick={() => {
-                      setSelectedTechnology('all');
-                      setCurrentPage(1);
-                      setIsFilterOpen(false);
-                    }}
-                  >
-                    All Technologies
+              
+              {/* Technology Filter */}
+              <div className="relative">
+                <button
+                  onClick={() => toggleFilterMenu('technology')}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                    selectedTechnology !== 'all' 
+                      ? `${COLORS.background.primary} ${COLORS.text.white} shadow-md` 
+                      : `${COLORS.background.white} ${COLORS.text.secondary} ${COLORS.border.secondary} border hover:${COLORS.background.tertiary}`
+                  }`}
+                  disabled={isLoading || technologies.length === 0}
+                >
+                  <span>
+                    {selectedTechnology === 'all' 
+                      ? 'All Technologies' 
+                      : technologies.find(t => t._id === selectedTechnology)?.name || 'Technology'}
+                  </span>
+                  <ChevronDown size={16} className={`transition-transform ${activeFilter === 'technology' && isFilterOpen ? 'rotate-180' : ''}`} />
+                </button>
+                
+                {activeFilter === 'technology' && isFilterOpen && (
+                  <div className={`absolute z-20 mt-2 w-64 ${COLORS.background.white} ${COLORS.border.secondary} border rounded-xl shadow-xl`}>
+                    <div className="p-2 max-h-60 overflow-y-auto">
+                      <div 
+                        className={`px-3 py-2 rounded-lg cursor-pointer transition-colors ${selectedTechnology === 'all' ? `${COLORS.background.primaryLight} ${COLORS.text.primary}` : `hover:${COLORS.background.tertiary}`}`}
+                        onClick={() => {
+                          setSelectedTechnology('all');
+                          setCurrentPage(1);
+                          setIsFilterOpen(false);
+                        }}
+                      >
+                        All Technologies
+                      </div>
+                      {technologies.map(tech => (
+                        <div 
+                          key={tech._id}
+                          className={`px-3 py-2 rounded-lg cursor-pointer transition-colors ${selectedTechnology === tech._id ? `${COLORS.background.primaryLight} ${COLORS.text.primary}` : `hover:${COLORS.background.tertiary}`}`}
+                          onClick={() => {
+                            setSelectedTechnology(tech._id);
+                            setCurrentPage(1);
+                            setIsFilterOpen(false);
+                          }}
+                        >
+                          {tech.name}
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  {technologies.map(tech => (
-                    <div 
-                      key={tech._id}
-                      className={`px-3 py-2 rounded-md cursor-pointer ${selectedTechnology === tech._id ? 'bg-emerald-100 text-emerald-700' : 'hover:bg-gray-100'}`}
-                      onClick={() => {
-                        setSelectedTechnology(tech._id);
-                        setCurrentPage(1);
-                        setIsFilterOpen(false);
-                      }}
-                    >
-                      {tech.name}
-                    </div>
-                  ))}
-                </div>
+                )}
               </div>
-            )}
+              
+              {/* Difficulty Filter */}
+              <div className="relative">
+                <button
+                  onClick={() => toggleFilterMenu('difficulty')}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                    selectedDifficulty !== 'all' 
+                      ? `${COLORS.background.primary} ${COLORS.text.white} shadow-md` 
+                      : `${COLORS.background.white} ${COLORS.text.secondary} ${COLORS.border.secondary} border hover:${COLORS.background.tertiary}`
+                  }`}
+                  disabled={isLoading}
+                >
+                  <span>
+                    {selectedDifficulty === 'all' 
+                      ? 'All Levels' 
+                      : selectedDifficulty.charAt(0).toUpperCase() + selectedDifficulty.slice(1)}
+                  </span>
+                  <ChevronDown size={16} className={`transition-transform ${activeFilter === 'difficulty' && isFilterOpen ? 'rotate-180' : ''}`} />
+                </button>
+                
+                {activeFilter === 'difficulty' && isFilterOpen && (
+                  <div className={`absolute z-20 mt-2 w-48 ${COLORS.background.white} ${COLORS.border.secondary} border rounded-xl shadow-xl`}>
+                    <div className="p-2">
+                      {['all', 'beginner', 'intermediate', 'advanced'].map(level => (
+                        <div 
+                          key={level}
+                          className={`px-3 py-2 rounded-lg cursor-pointer transition-colors ${selectedDifficulty === level ? `${COLORS.background.primaryLight} ${COLORS.text.primary}` : `hover:${COLORS.background.tertiary}`}`}
+                          onClick={() => {
+                            setSelectedDifficulty(level);
+                            setCurrentPage(1);
+                            setIsFilterOpen(false);
+                          }}
+                        >
+                          {level === 'all' ? 'All Levels' : level.charAt(0).toUpperCase() + level.slice(1)}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              {/* Clear Filters Button */}
+              {(selectedDomain !== 'all' || selectedTechnology !== 'all' || selectedDifficulty !== 'all' || searchQuery) && (
+                <button
+                  onClick={clearFilters}
+                  className={`flex items-center gap-2 px-4 py-2 ${COLORS.status.error.bg} ${COLORS.status.error.text} rounded-lg text-sm font-medium hover:bg-red-100 transition-colors`}
+                  disabled={isLoading || isFiltering}
+                >
+                  <X size={14} />
+                  Clear Filters
+                </button>
+              )}
+            </div>
+
+            {/* Sort Dropdown */}
+            <div>
+              <select
+                value={sortBy}
+                onChange={(e) => {
+                  setSortBy(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className={`px-4 py-2 ${COLORS.border.secondary} border rounded-lg text-sm ${COLORS.interactive.focus.outline} ${COLORS.interactive.focus.ring}`}
+                disabled={isLoading}
+              >
+                <option value="-createdAt">Newest First</option>
+                <option value="createdAt">Oldest First</option>
+                <option value="title">Title A-Z</option>
+                <option value="-title">Title Z-A</option>
+                <option value="difficulty">Difficulty: Easy to Hard</option>
+              </select>
+            </div>
           </div>
-          
-          {/* Difficulty Filter */}
-          <div className="relative">
-            <button
-              onClick={() => toggleFilterMenu('difficulty')}
-              className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-medium ${
-                selectedDifficulty !== 'all' 
-                  ? 'bg-emerald-100 text-emerald-700 border-2 border-emerald-500' 
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200'
-              }`}
-              disabled={isLoading}
-            >
-              <span>
-                {selectedDifficulty === 'all' 
-                  ? 'All Levels' 
-                  : selectedDifficulty.charAt(0).toUpperCase() + selectedDifficulty.slice(1)}
+        </div>
+        
+        {/* Error Message */}
+        {error && (
+          <div className={`mb-6 p-4 ${COLORS.status.error.bg} ${COLORS.status.error.text} rounded-lg flex items-center`}>
+            <AlertCircle size={18} className="mr-3 flex-shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+        
+        {/* Results Count */}
+        <div className="mb-6 flex justify-between items-center">
+          <p className={`${COLORS.text.secondary}`}>
+            {isFiltering ? (
+              <span className="flex items-center gap-2">
+                <Loader size={16} className="animate-spin" />
+                Filtering tutorials...
               </span>
-              <ChevronDown size={16} className={`transition-transform ${activeFilter === 'difficulty' && isFilterOpen ? 'rotate-180' : ''}`} />
-            </button>
-            
-            {activeFilter === 'difficulty' && isFilterOpen && (
-              <div className="absolute z-20 mt-1 w-48 bg-white border rounded-md shadow-lg">
-                <div className="p-2">
-                  {['all', 'beginner', 'intermediate', 'advanced'].map(level => (
-                    <div 
-                      key={level}
-                      className={`px-3 py-2 rounded-md cursor-pointer ${selectedDifficulty === level ? 'bg-emerald-100 text-emerald-700' : 'hover:bg-gray-100'}`}
-                      onClick={() => {
-                        setSelectedDifficulty(level);
-                        setCurrentPage(1);
-                        setIsFilterOpen(false);
-                      }}
+            ) : (
+              <>
+                <span className="font-medium">{totalTutorials}</span> {totalTutorials === 1 ? 'tutorial' : 'tutorials'} found
+                {searchQuery && <span> for "{searchQuery}"</span>}
+                {totalPages > 1 && (
+                  <span> (Page {currentPage} of {totalPages})</span>
+                )}
+              </>
+            )}
+          </p>
+        </div>
+
+        {/* Loading State */}
+        {isLoading && (
+          <div className="text-center py-16">
+            <Loader size={40} className={`animate-spin mx-auto mb-4 ${COLORS.text.primary}`} />
+            <p className={COLORS.text.secondary}>Loading tutorials...</p>
+          </div>
+        )}
+        
+        {/* Tutorial Cards Grid */}
+        {!isLoading && tutorials.length > 0 ? (
+          <>
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-12">
+              {tutorials.map(tutorial => (
+                <TutorialCard 
+                  key={tutorial._id} 
+                  tutorial={tutorial} 
+                  user={user}
+                  isBookmarked={isTutorialBookmarked(tutorial._id)}
+                  progress={getTutorialProgress(tutorial._id)}
+                  onBookmarkToggle={(e) => toggleBookmark(e, tutorial._id)}
+                />
+              ))}
+            </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex justify-center items-center gap-2">
+                <button
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1 || isFiltering}
+                  className={`px-4 py-2 ${COLORS.border.secondary} border rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:${COLORS.background.tertiary} transition-colors`}
+                >
+                  Previous
+                </button>
+                
+                {[...Array(Math.min(totalPages, 5))].map((_, index) => {
+                  const pageNumber = currentPage <= 3 ? index + 1 : currentPage - 2 + index;
+                  if (pageNumber > totalPages) return null;
+                  
+                  return (
+                    <button
+                      key={pageNumber}
+                      onClick={() => handlePageChange(pageNumber)}
+                      disabled={isFiltering}
+                      className={`px-4 py-2 border rounded-lg transition-colors ${
+                        currentPage === pageNumber 
+                          ? `${COLORS.background.primary} ${COLORS.text.white} ${COLORS.border.primaryDark}` 
+                          : `${COLORS.border.secondary} hover:${COLORS.background.tertiary}`
+                      }`}
                     >
-                      {level === 'all' ? 'All Levels' : level.charAt(0).toUpperCase() + level.slice(1)}
-                    </div>
-                  ))}
-                </div>
+                      {pageNumber}
+                    </button>
+                  );
+                })}
+                
+                <button
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages || isFiltering}
+                  className={`px-4 py-2 ${COLORS.border.secondary} border rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:${COLORS.background.tertiary} transition-colors`}
+                >
+                  Next
+                </button>
               </div>
             )}
-          </div>
-          
-          {/* Clear Filters Button */}
-          {(selectedDomain !== 'all' || selectedTechnology !== 'all' || selectedDifficulty !== 'all' || searchQuery) && (
+          </>
+        ) : !isLoading && (
+          <div className={`text-center py-16 ${COLORS.background.white} rounded-xl ${COLORS.border.secondary} border`}>
+            <div className={`mx-auto w-16 h-16 ${COLORS.background.tertiary} rounded-full flex items-center justify-center mb-6`}>
+              <Search size={28} className={COLORS.text.tertiary} />
+            </div>
+            <h3 className={`text-xl font-semibold ${COLORS.text.dark} mb-2`}>No tutorials found</h3>
+            <p className={`${COLORS.text.secondary} mb-6`}>
+              Try adjusting your search or filters to find tutorials.
+            </p>
             <button
               onClick={clearFilters}
-              className="flex items-center gap-1 px-3 py-1.5 bg-red-50 text-red-600 rounded-full text-sm font-medium hover:bg-red-100"
-              disabled={isLoading || isFiltering}
+              className={`inline-flex items-center gap-2 px-6 py-3 ${COLORS.button.primary} rounded-lg transition-colors duration-200`}
             >
-              <X size={14} />
-              Clear Filters
+              <X size={16} />
+              Clear filters
             </button>
-          )}
-        </div>
-
-        {/* Sort Dropdown */}
-        <div className="relative">
-          <select
-            value={sortBy}
-            onChange={(e) => {
-              setSortBy(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            disabled={isLoading}
-          >
-            <option value="-createdAt">Newest First</option>
-            <option value="createdAt">Oldest First</option>
-            <option value="title">Title A-Z</option>
-            <option value="-title">Title Z-A</option>
-            <option value="difficulty">Difficulty: Easy to Hard</option>
-          </select>
-        </div>
-      </div>
-      
-      {/* Error Message */}
-      {error && (
-        <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-md flex items-center">
-          <AlertCircle size={18} className="mr-2 flex-shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
-      
-      {/* Results Count and Status */}
-      <div className="mb-4 flex justify-between items-center">
-        <p className="text-sm text-gray-600">
-          {isFiltering ? (
-            <span className="flex items-center">
-              <Loader size={14} className="animate-spin mr-2" />
-              Filtering tutorials...
-            </span>
-          ) : (
-            <>
-              {totalTutorials} {totalTutorials === 1 ? 'tutorial' : 'tutorials'} found
-              {searchQuery && <span> for "{searchQuery}"</span>}
-              {totalPages > 1 && (
-                <span> (Page {currentPage} of {totalPages})</span>
-              )}
-            </>
-          )}
-        </p>
-      </div>
-
-      {/* Featured Categories Component
-      <TutorialCategories /> */}
-      
-      {/* Loading State */}
-      {isLoading && (
-        <div className="text-center py-12">
-          <Loader size={36} className="animate-spin mx-auto mb-4 text-emerald-500" />
-          <p className="text-gray-500">Loading tutorials...</p>
-        </div>
-      )}
-      
-      {/* Tutorial Cards Grid */}
-      {!isLoading && tutorials.length > 0 ? (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-            {tutorials.map(tutorial => (
-              <TutorialCard 
-                key={tutorial._id} 
-                tutorial={tutorial} 
-                user={user}
-                isBookmarked={isTutorialBookmarked(tutorial._id)}
-                progress={getTutorialProgress(tutorial._id)}
-                onBookmarkToggle={(e) => toggleBookmark(e, tutorial._id)}
-              />
-            ))}
           </div>
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex justify-center items-center space-x-2">
-              <button
-                onClick={() => handlePageChange(currentPage - 1)}
-                disabled={currentPage === 1 || isFiltering}
-                className="px-3 py-2 border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-              >
-                Previous
-              </button>
-              
-              {[...Array(Math.min(totalPages, 5))].map((_, index) => {
-                const pageNumber = currentPage <= 3 ? index + 1 : currentPage - 2 + index;
-                if (pageNumber > totalPages) return null;
-                
-                return (
-                  <button
-                    key={pageNumber}
-                    onClick={() => handlePageChange(pageNumber)}
-                    disabled={isFiltering}
-                    className={`px-3 py-2 border border-gray-300 rounded-md ${
-                      currentPage === pageNumber 
-                        ? 'bg-emerald-600 text-white border-emerald-600' 
-                        : 'hover:bg-gray-50'
-                    }`}
-                  >
-                    {pageNumber}
-                  </button>
-                );
-              })}
-              
-              <button
-                onClick={() => handlePageChange(currentPage + 1)}
-                disabled={currentPage === totalPages || isFiltering}
-                className="px-3 py-2 border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-              >
-                Next
-              </button>
-            </div>
-          )}
-        </>
-      ) : !isLoading && (
-        <div className="text-center py-12 bg-gray-50 rounded-lg border">
-          <div className="mx-auto w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mb-4">
-            <Search size={24} className="text-gray-400" />
-          </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No tutorials found</h3>
-          <p className="text-gray-600 mb-4">
-            Try adjusting your search or filters to find tutorials.
-          </p>
-          <button
-            onClick={clearFilters}
-            className="inline-flex items-center px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700"
-          >
-            <X size={16} className="mr-2" />
-            Clear filters
-          </button>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };
 
-// Tutorial Card Component - Updated with backend data
+// Enhanced Tutorial Card Component
 const TutorialCard = ({ tutorial, user, isBookmarked = false, progress = 0, onBookmarkToggle }) => {
   const navigate = useNavigate();
 
-  // Get tutorial color based on technology
-  const getTutorialColor = (tutorial) => {
+  // Get technology icon with colors
+  const getTechnologyIcon = (tutorial) => {
     const techName = tutorial.technology?.name?.toLowerCase() || '';
     
-    if (techName.includes('html')) return 'from-orange-500 to-red-500';
-    if (techName.includes('css')) return 'from-blue-500 to-cyan-500';
-    if (techName.includes('javascript')) return 'from-yellow-400 to-yellow-600';
-    if (techName.includes('react')) return 'from-cyan-500 to-blue-500';
-    if (techName.includes('node')) return 'from-green-500 to-green-600';
-    if (techName.includes('python')) return 'from-blue-600 to-purple-600';
-    return 'from-emerald-500 to-teal-600';
-  };
-
-  // Get technology icon
-  const getTechnologyIcon = (tutorial) => {
-    const techName = tutorial.technology?.name || '';
-    return (
-      <span className="text-lg font-bold text-white">
-        {techName.substring(0, 2).toUpperCase()}
-      </span>
-    );
-  };
-
-  // Format estimated time
-  const formatEstimatedTime = (minutes) => {
-    if (minutes < 60) return `${minutes} min`;
-    const hours = Math.floor(minutes / 60);
-    const remainingMinutes = minutes % 60;
-    if (remainingMinutes === 0) return `${hours}h`;
-    return `${hours}h ${remainingMinutes}m`;
+    if (techName.includes('html')) return { icon: 'HTML', color: 'from-orange-500 to-red-500' };
+    if (techName.includes('css')) return { icon: 'CSS', color: 'from-blue-500 to-cyan-500' };
+    if (techName.includes('javascript')) return { icon: 'JS', color: 'from-yellow-400 to-yellow-600' };
+    if (techName.includes('react')) return { icon: 'React', color: 'from-cyan-500 to-blue-500' };
+    if (techName.includes('node')) return { icon: 'Node', color: 'from-green-500 to-green-600' };
+    if (techName.includes('python')) return { icon: 'Py', color: 'from-blue-600 to-purple-600' };
+    
+    return { 
+      icon: tutorial.technology?.name?.substring(0, 2).toUpperCase() || 'CODE', 
+      color: 'from-emerald-500 to-teal-600' 
+    };
   };
 
   const handleCardClick = () => {
     navigate(`/tutorials/${tutorial.slug || tutorial._id}`);
   };
   
+  const techInfo = getTechnologyIcon(tutorial);
+  
   return (
     <div 
-      className="flex flex-col rounded-lg border overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer bg-white"
+      className={`${COLORS.background.white} rounded-xl ${COLORS.border.secondary} border hover:shadow-lg transition-all duration-300 cursor-pointer overflow-hidden group`}
       onClick={handleCardClick}
     >
-      {/* Card Header with gradient background */}
-      <div className={`bg-gradient-to-r ${getTutorialColor(tutorial)} p-4 h-20 relative`}>
-        <div className="flex justify-between items-center">
-          <div className="w-12 h-12 rounded-full bg-white bg-opacity-20 backdrop-blur-sm flex items-center justify-center">
-            {getTechnologyIcon(tutorial)}
+      {/* Card Header */}
+      <div className={`bg-gradient-to-r ${techInfo.color} p-6 relative`}>
+        <div className="flex justify-between items-start">
+          <div className={`${COLORS.background.white} bg-opacity-20 backdrop-blur-sm rounded-lg p-3 inline-flex items-center justify-center`}>
+            <span className="text-white font-bold text-sm">
+              {techInfo.icon}
+            </span>
           </div>
           
-          <div className="flex flex-col items-end gap-1">
-            {tutorial.difficulty && (
-              <div className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                tutorial.difficulty === 'beginner' ? 'bg-green-100 text-green-800' :
-                tutorial.difficulty === 'intermediate' ? 'bg-blue-100 text-blue-800' :
-                tutorial.difficulty === 'advanced' ? 'bg-purple-100 text-purple-800' :
-                'bg-gray-100 text-gray-800'
-              }`}>
-                {tutorial.difficulty.charAt(0).toUpperCase() + tutorial.difficulty.slice(1)}
-              </div>
-            )}
-          </div>
+          {/* Bookmark button */}
+          {user && (
+            <button
+              onClick={onBookmarkToggle}
+              className={`p-2 rounded-lg transition-all duration-200 ${
+                isBookmarked 
+                  ? 'text-yellow-400 bg-white bg-opacity-20' 
+                  : 'text-white bg-black bg-opacity-20 hover:bg-opacity-30'
+              }`}
+            >
+              <Bookmark size={16} className={isBookmarked ? 'fill-yellow-400' : ''} />
+            </button>
+          )}
         </div>
-
-        {/* Bookmark button */}
-        {user && (
-          <button
-            onClick={onBookmarkToggle}
-            className={`absolute top-2 right-2 p-1.5 rounded-full transition-colors ${
-              isBookmarked 
-                ? 'text-yellow-400 bg-white bg-opacity-20' 
-                : 'text-white bg-black bg-opacity-20 hover:bg-opacity-30'
-            }`}
-          >
-            <Bookmark size={16} className={isBookmarked ? 'fill-yellow-400' : ''} />
-          </button>
-        )}
       </div>
       
       {/* Card Body */}
-      <div className="flex-1 p-4">
-        <h3 className="text-lg font-medium text-gray-900 mb-1 line-clamp-1">{tutorial.title}</h3>
-        <p className="text-gray-600 text-sm mb-3 line-clamp-2">{tutorial.description}</p>
-        
-        {/* Meta info */}
-        <div className="flex justify-between text-xs text-gray-500 mb-3">
-          <div className="flex items-center">
-            <BookOpen size={14} className="mr-1" />
-            <span>{tutorial.lessons?.length || 0} lessons</span>
-          </div>
-          <div className="flex items-center">
-            <Clock size={14} className="mr-1" />
-            <span>{formatEstimatedTime(tutorial.estimatedTime || 30)}</span>
+      <div className="p-6">
+        <div className="flex items-center justify-between mb-3">
+          <div className={`px-3 py-1 rounded-full text-xs font-medium ${COLORS.difficulty[tutorial.difficulty] || COLORS.difficulty.beginner}`}>
+            {tutorial.difficulty?.charAt(0).toUpperCase() + tutorial.difficulty?.slice(1) || 'Beginner'}
           </div>
         </div>
         
-        {/* Progress bar (for logged in users) */}
+        <h3 className={`text-lg font-semibold ${COLORS.text.dark} mb-2 group-hover:${COLORS.text.primary} transition-colors`}>
+          {tutorial.title}
+        </h3>
+        
+        <p className={`${COLORS.text.secondary} text-sm mb-4 leading-relaxed`}>
+          {tutorial.description}
+        </p>
+        
+        {/* Meta info */}
+        <div className="flex items-center justify-between text-xs mb-4">
+          <div className={`flex items-center gap-1 ${COLORS.text.tertiary}`}>
+            <BookOpen size={14} />
+            <span>{tutorial.lessons?.length || 0} lessons</span>
+          </div>
+          <div className={`flex items-center gap-1 ${COLORS.text.tertiary}`}>
+            <Clock size={14} />
+            <span>~2 hours</span>
+          </div>
+        </div>
+        
+        {/* Progress bar for logged in users */}
         {user && progress > 0 && (
-          <div className="mb-3">
-            <div className="flex justify-between text-xs mb-1">
-              <span className="font-medium text-gray-700">Your progress</span>
-              <span className="text-emerald-600">{Math.round(progress)}%</span>
+          <div className="mb-4">
+            <div className="flex justify-between text-xs mb-2">
+              <span className={`font-medium ${COLORS.text.secondary}`}>Progress</span>
+              <span className={COLORS.text.primary}>{Math.round(progress)}%</span>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-1.5">
+            <div className={`w-full ${COLORS.background.tertiary} rounded-full h-2`}>
               <div 
-                className="bg-emerald-600 h-1.5 rounded-full"
+                className={`${COLORS.background.primary} h-2 rounded-full transition-all duration-300`}
                 style={{ width: `${progress}%` }}
               ></div>
             </div>
           </div>
         )}
         
-        {/* Tags */}
-        {tutorial.tags && tutorial.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1 mb-3">
-            {tutorial.tags.slice(0, 3).map((tag, index) => (
-              <span 
-                key={index}
-                className="inline-block px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded-full"
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
-        )}
-        
-        {/* Action button */}
-        <div className="flex items-center text-emerald-600 font-medium text-sm">
+        {/* Action */}
+        <div className={`flex items-center ${COLORS.text.primary} font-medium text-sm group-hover:gap-2 transition-all duration-200`}>
           <span>{user && progress > 0 ? 'Continue Learning' : 'Start Learning'}</span>
-          <ArrowRight size={16} className="ml-1" />
+          <ArrowRight size={16} className="ml-1 group-hover:translate-x-1 transition-transform duration-200" />
         </div>
       </div>
     </div>
