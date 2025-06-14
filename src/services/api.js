@@ -3,7 +3,7 @@ import axios from 'axios';
 
 // Update this to point to your backend
 const API_URL = import.meta.env.PROD 
-  ? 'https://codecraft-backend-8fme.onrender.com'  // Your actual backend URL
+  ? 'VITE_API_URL=https://codecraft-backend-8fme.onrender.com/api/v1'  // Your actual backend URL
   : 'http://localhost:5001/api/v1';
 
 const api = axios.create({
