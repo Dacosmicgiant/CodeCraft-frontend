@@ -9,15 +9,11 @@ import {
   Clock,
   BarChart,
   Loader,
-  Play,
   CheckCircle,
   ArrowRight,
   User
 } from 'lucide-react';
 import { tutorialAPI, lessonAPI, userAPI, technologyAPI, domainAPI } from '../../services/api';
-import TutorialContent from '../../components/tutorial/TutorialContent';
-import NotesComponent from '../../components/tutorial/NotesComponent';
-import ResourceList from '../../components/tutorial/ResourceList';
 import { useAuth } from '../../hooks/useAuth';
 
 const DynamicTutorial = () => {
@@ -32,8 +28,6 @@ const DynamicTutorial = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isBookmarked, setIsBookmarked] = useState(false);
-  const [userProgress, setUserProgress] = useState(0);
-  const [relatedTutorials, setRelatedTutorials] = useState([]);
   
   // Fetch tutorial data based on route params
   useEffect(() => {
@@ -181,27 +175,6 @@ const DynamicTutorial = () => {
         }
       }
 
-      // Fetch related tutorials
-      try {
-        const relatedParams = {};
-        if (tutorialData.technology) {
-          relatedParams.technology = tutorialData.technology._id || tutorialData.technology;
-        } else if (tutorialData.domain) {
-          relatedParams.domain = tutorialData.domain._id || tutorialData.domain;
-        }
-        
-        const relatedResponse = await tutorialAPI.getAll({
-          ...relatedParams,
-          limit: 4
-        });
-        const related = relatedResponse.data.tutorials || relatedResponse.data;
-        // Filter out current tutorial
-        const filteredRelated = related.filter(t => t._id !== tutorialData._id);
-        setRelatedTutorials(filteredRelated.slice(0, 3));
-      } catch (relatedErr) {
-        console.warn('Could not fetch related tutorials:', relatedErr);
-      }
-
       setTutorial(tutorialData);
       setLessons(lessonsData);
       
@@ -222,17 +195,6 @@ const DynamicTutorial = () => {
         bookmark._id === tutorial._id || bookmark === tutorial._id
       );
       setIsBookmarked(isBookmarked);
-
-      // Fetch user progress
-      const progressResponse = await userAPI.getProgress();
-      const progressItems = progressResponse.data || [];
-      const tutorialProgress = progressItems.find(item => 
-        item.tutorial === tutorial._id || 
-        (item.tutorial && item.tutorial._id === tutorial._id)
-      );
-      if (tutorialProgress) {
-        setUserProgress(tutorialProgress.completion || 0);
-      }
     } catch (err) {
       console.warn('Could not fetch user data:', err);
     }
@@ -274,89 +236,7 @@ const DynamicTutorial = () => {
     }
   };
 
-  // Start first lesson
-  const startFirstLesson = () => {
-    if (lessons.length > 0) {
-      navigate(`/lessons/${lessons[0]._id}`);
-    }
-  };
-
-  // Generate resources based on tutorial data
-  const generateResources = () => {
-    if (!tutorial) return [];
-    
-    const resources = [];
-    const techName = (technologyData?.name || tutorial.technology?.name || '').toLowerCase();
-    
-    // Add official documentation links
-    if (techName.includes('html')) {
-      resources.push({
-        title: 'MDN HTML Documentation',
-        url: 'https://developer.mozilla.org/en-US/docs/Web/HTML',
-        description: 'Official HTML documentation by Mozilla',
-        type: 'documentation'
-      });
-    }
-    
-    if (techName.includes('css')) {
-      resources.push({
-        title: 'MDN CSS Documentation',
-        url: 'https://developer.mozilla.org/en-US/docs/Web/CSS',
-        description: 'Official CSS documentation by Mozilla',
-        type: 'documentation'
-      });
-    }
-    
-    if (techName.includes('javascript')) {
-      resources.push({
-        title: 'MDN JavaScript Documentation',
-        url: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript',
-        description: 'Official JavaScript documentation by Mozilla',
-        type: 'documentation'
-      });
-    }
-    
-    if (techName.includes('react')) {
-      resources.push({
-        title: 'React Official Documentation',
-        url: 'https://reactjs.org/docs/getting-started.html',
-        description: 'Official React documentation',
-        type: 'documentation'
-      });
-    }
-
-    if (techName.includes('node')) {
-      resources.push({
-        title: 'Node.js Official Documentation',
-        url: 'https://nodejs.org/en/docs/',
-        description: 'Official Node.js documentation',
-        type: 'documentation'
-      });
-    }
-
-    // Add practice resources
-    resources.push({
-      title: 'Practice Exercises',
-      url: 'https://www.freecodecamp.org/',
-      description: 'Additional practice exercises related to this tutorial',
-      type: 'tutorial'
-    });
-    
-    return resources;
-  };
-
-  // Format tutorial content for TutorialContent component
-  const formatTutorialContent = () => {
-    if (!tutorial) return null;
-    
-    return {
-      title: tutorial.title,
-      introduction: tutorial.description,
-      // We'll pass lessons separately to TutorialContent
-    };
-  };
-
-  // Generate breadcrumb navigation - FIXED VERSION
+  // Generate breadcrumb navigation
   const getBreadcrumbs = () => {
     const breadcrumbs = [
       { label: 'Tutorials', href: '/tutorials' }
@@ -365,7 +245,7 @@ const DynamicTutorial = () => {
     if (domainData) {
       breadcrumbs.push({ 
         label: domainData.name, 
-        href: `/domains/${domainData.slug || domainData._id}` // FIXED: Use /domains/ instead of /tutorials/
+        href: `/domains/${domainData.slug || domainData._id}`
       });
     }
 
@@ -444,7 +324,6 @@ const DynamicTutorial = () => {
   }
 
   const breadcrumbs = getBreadcrumbs();
-  const tutorialContent = formatTutorialContent();
   
   return (
     <div className="max-w-4xl mx-auto">
@@ -548,59 +427,7 @@ const DynamicTutorial = () => {
           </div>
         )}
       </div>
-      
-      {/* Progress Bar (for logged-in users) */}
-      {isAuthenticated && (
-        <div className="mb-6">
-          <div className="flex justify-between text-sm mb-2">
-            <span className="font-medium text-gray-700">Your progress</span>
-            <span className="text-emerald-600">{userProgress}%</span>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
-            <div 
-              className="bg-emerald-600 h-2 rounded-full transition-all duration-300" 
-              style={{ width: `${userProgress}%` }}
-            ></div>
-          </div>
-        </div>
-      )}
-
-      {/* Quick Start Section */}
-      {lessons.length > 0 && (
-        <div className="mb-8 bg-emerald-50 border border-emerald-200 rounded-lg p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-semibold text-emerald-800 mb-1">Ready to start learning?</h3>
-              <p className="text-emerald-600">
-                This tutorial has {lessons.length} {lessons.length === 1 ? 'lesson' : 'lessons'} • 
-                Estimated time: {tutorial.estimatedTime || 30} minutes
-              </p>
-            </div>
-            <button
-              onClick={startFirstLesson}
-              className="px-6 py-3 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 font-medium flex items-center gap-2"
-            >
-              <Play size={18} />
-              Start Learning
-            </button>
-          </div>
-        </div>
-      )}
-      
-      {/* Notes Component (for logged-in users) */}
-      {isAuthenticated && (
-        <NotesComponent tutorialId={tutorial._id} />
-      )}
-      
-      {/* Main Tutorial Content */}
-      {tutorialContent && (
-        <TutorialContent 
-          content={tutorialContent} 
-          lessons={lessons}
-        />
-      )}
-      
-      {/* Lesson Links */}
+      {/* Course Lessons */}
       {lessons.length > 0 && (
         <div className="mt-8 mb-8">
           <h2 className="text-xl font-bold mb-4">Course Lessons</h2>
@@ -626,60 +453,10 @@ const DynamicTutorial = () => {
                           <span className="text-orange-500">Draft</span>
                         </>
                       )}
-                      {userProgress > ((index / lessons.length) * 100) && (
-                        <>
-                          <span className="mx-2">•</span>
-                          <CheckCircle size={14} className="text-green-500" />
-                          <span className="text-green-600">Completed</span>
-                        </>
-                      )}
                     </div>
                   </div>
                   <div className="text-emerald-600 ml-4">
                     <ArrowRight size={18} />
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
-      
-      {/* Additional Resources */}
-      <ResourceList resources={generateResources()} />
-      
-      {/* Related Tutorials */}
-      {relatedTutorials.length > 0 && (
-        <div className="mt-12 border-t pt-8">
-          <h3 className="text-xl font-bold mb-4">Related Tutorials</h3>
-          <div className="grid md:grid-cols-2 gap-4">
-            {relatedTutorials.map((related) => (
-              <Link 
-                key={related._id} 
-                to={`/tutorials/${related.slug || related._id}`} 
-                className="p-4 border rounded-md hover:bg-gray-50 hover:border-emerald-300 transition-all"
-              >
-                <div className="flex items-start">
-                  <div className="w-10 h-10 bg-gray-100 rounded-md flex items-center justify-center mr-3 flex-shrink-0">
-                    <BookOpen size={18} className="text-gray-600" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h4 className="font-medium text-gray-900 truncate">{related.title}</h4>
-                    <p className="text-sm text-gray-600 mt-1 line-clamp-2">{related.description}</p>
-                    <div className="flex items-center mt-2 text-xs text-gray-500">
-                      {related.difficulty && (
-                        <span className={`px-2 py-0.5 rounded-full ${
-                          related.difficulty === 'beginner' ? 'bg-green-100 text-green-800' :
-                          related.difficulty === 'intermediate' ? 'bg-blue-100 text-blue-800' :
-                          'bg-purple-100 text-purple-800'
-                        }`}>
-                          {related.difficulty}
-                        </span>
-                      )}
-                      <span className="mx-2">•</span>
-                      <Clock size={12} className="mr-1" />
-                      <span>{related.estimatedTime || 30} min</span>
-                    </div>
                   </div>
                 </div>
               </Link>

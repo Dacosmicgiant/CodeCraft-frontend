@@ -278,65 +278,7 @@ const DynamicDomain = () => {
         </div>
       )}
 
-      {/* Tutorials Section */}
-      {tutorials.length > 0 && (
-        <div className="mb-12">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className={`text-2xl font-bold ${COLORS.text.dark}`}>Latest Tutorials</h2>
-            <Link 
-              to={`/tutorials?domain=${domain._id}`}
-              className={`${COLORS.text.primary} hover:${COLORS.text.primaryHover} font-medium`}
-            >
-              View All Tutorials
-            </Link>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {tutorials.slice(0, 6).map((tutorial) => (
-              <TutorialCard 
-                key={tutorial._id}
-                tutorial={tutorial}
-                isBookmarked={isTutorialBookmarked(tutorial._id)}
-                progress={getTutorialProgress(tutorial._id)}
-                onBookmarkToggle={(e) => toggleBookmark(e, tutorial._id)}
-                user={user}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Get Started CTA */}
-      <div className={`${COLORS.background.tertiary} rounded-lg p-8 text-center`}>
-        <h3 className={`text-xl font-bold mb-2 ${COLORS.text.dark}`}>Ready to dive into {domain.name}?</h3>
-        <p className={`${COLORS.text.secondary} mb-4`}>
-          Start with our beginner-friendly tutorials and build your skills step by step.
-        </p>
-        {!isAuthenticated ? (
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Link
-              to="/register"
-              className={`px-6 py-3 ${COLORS.button.primary} rounded-md font-medium`}
-            >
-              Sign Up Free
-            </Link>
-            <Link
-              to="/login"
-              className={`px-6 py-3 ${COLORS.button.outline} rounded-md font-medium`}
-            >
-              Sign In
-            </Link>
-          </div>
-        ) : (
-          <Link
-            to={`/tutorials?domain=${domain._id}`}
-            className={`inline-flex items-center px-6 py-3 ${COLORS.button.primary} rounded-md font-medium`}
-          >
-            Start Learning
-            <ArrowRight size={18} className="ml-2" />
-          </Link>
-        )}
-      </div>
+      
     </div>
   );
 };

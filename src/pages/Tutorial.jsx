@@ -1,76 +1,36 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { 
   BookOpen, 
   Code, 
-  Search, 
-  Filter, 
-  Star, 
-  Clock, 
-  ChevronDown,
-  X,
   ArrowRight,
   Bookmark,
   Loader,
   AlertCircle,
   Play,
-  BarChart
+  Clock,
+  Star,
+  Users,
+  ChevronRight,
+  Layers
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
-import { tutorialAPI, domainAPI, technologyAPI, userAPI } from '../services/api';
+import { domainAPI, tutorialAPI, userAPI } from '../services/api';
 import { COLORS } from '../constants/colors';
 
 const TutorialPage = () => {
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
   
-  // State for tutorials, domains, and technologies
-  const [tutorials, setTutorials] = useState([]);
+  // State for domains and featured tutorials
   const [domains, setDomains] = useState([]);
-  const [technologies, setTechnologies] = useState([]);
+  const [featuredTutorials, setFeaturedTutorials] = useState([]);
   const [userBookmarks, setUserBookmarks] = useState([]);
   const [userProgress, setUserProgress] = useState([]);
   
-  // Filter and search state
-  const [selectedDomain, setSelectedDomain] = useState('all');
-  const [selectedTechnology, setSelectedTechnology] = useState('all');
-  const [selectedDifficulty, setSelectedDifficulty] = useState('all');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState('-createdAt');
-  
-  // UI state
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [activeFilter, setActiveFilter] = useState(null);
-  
   // Loading and error state
   const [isLoading, setIsLoading] = useState(true);
-  const [isFiltering, setIsFiltering] = useState(false);
   const [error, setError] = useState(null);
-  
-  // Pagination
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalTutorials, setTotalTutorials] = useState(0);
-  const tutorialsPerPage = 12;
-  
-  // Parse query params for initial filter state
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const domainParam = params.get('domain');
-    const technologyParam = params.get('technology');
-    const difficultyParam = params.get('difficulty');
-    const searchParam = params.get('q');
-    const pageParam = params.get('page');
-    const sortParam = params.get('sort');
-    
-    if (domainParam) setSelectedDomain(domainParam);
-    if (technologyParam) setSelectedTechnology(technologyParam);
-    if (difficultyParam) setSelectedDifficulty(difficultyParam);
-    if (searchParam) setSearchQuery(searchParam);
-    if (pageParam) setCurrentPage(parseInt(pageParam) || 1);
-    if (sortParam) setSortBy(sortParam);
-  }, [location.search]);
   
   // Fetch initial data
   useEffect(() => {
@@ -84,28 +44,26 @@ const TutorialPage = () => {
     }
   }, [isAuthenticated]);
   
-  // Re-fetch tutorials when filters change
-  useEffect(() => {
-    fetchTutorials();
-    updateURL();
-  }, [selectedDomain, selectedTechnology, selectedDifficulty, searchQuery, sortBy, currentPage]);
-  
   const fetchInitialData = async () => {
     try {
       setIsLoading(true);
       setError(null);
       
-      const [domainsRes, technologiesRes] = await Promise.all([
+      // Fetch domains and featured tutorials
+      const [domainsRes, featuredRes] = await Promise.all([
         domainAPI.getAll(),
-        technologyAPI.getAll()
+        tutorialAPI.getAll({ limit: 6, sort: '-createdAt' })
       ]);
 
       setDomains(domainsRes.data);
-      setTechnologies(technologiesRes.data);
+      
+      // Handle both paginated and non-paginated responses for tutorials
+      const tutorialsData = featuredRes.data.tutorials || featuredRes.data;
+      setFeaturedTutorials(tutorialsData);
       
     } catch (err) {
       console.error('Error fetching initial data:', err);
-      setError('Failed to load filter options. Please try again.');
+      setError('Failed to load content. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -123,91 +81,6 @@ const TutorialPage = () => {
     } catch (err) {
       console.warn('Could not fetch user data:', err);
     }
-  };
-  
-  const fetchTutorials = async () => {
-    try {
-      setIsFiltering(true);
-      if (currentPage === 1) setIsLoading(true);
-      setError(null);
-      
-      const filters = {
-        page: currentPage,
-        limit: tutorialsPerPage,
-        sort: sortBy
-      };
-      
-      if (selectedDomain !== 'all') filters.domain = selectedDomain;
-      if (selectedTechnology !== 'all') filters.technology = selectedTechnology;
-      if (selectedDifficulty !== 'all') filters.difficulty = selectedDifficulty;
-      if (searchQuery) filters.search = searchQuery;
-      
-      const response = await tutorialAPI.getAll(filters);
-      const data = response.data;
-      
-      // Handle both paginated and non-paginated responses
-      if (data.tutorials && data.pagination) {
-        setTutorials(data.tutorials);
-        setTotalPages(data.pagination.pages);
-        setTotalTutorials(data.pagination.total);
-      } else {
-        const tutorialsArray = data.tutorials || data;
-        setTutorials(tutorialsArray);
-        setTotalTutorials(tutorialsArray.length);
-        setTotalPages(Math.ceil(tutorialsArray.length / tutorialsPerPage));
-      }
-      
-    } catch (err) {
-      console.error('Error fetching tutorials:', err);
-      setError('Failed to load tutorials. Please try again.');
-    } finally {
-      setIsLoading(false);
-      setIsFiltering(false);
-    }
-  };
-
-  const updateURL = () => {
-    const params = new URLSearchParams();
-    
-    if (selectedDomain !== 'all') params.set('domain', selectedDomain);
-    if (selectedTechnology !== 'all') params.set('technology', selectedTechnology);
-    if (selectedDifficulty !== 'all') params.set('difficulty', selectedDifficulty);
-    if (searchQuery) params.set('q', searchQuery);
-    if (currentPage > 1) params.set('page', currentPage.toString());
-    if (sortBy !== '-createdAt') params.set('sort', sortBy);
-    
-    const newUrl = params.toString() 
-      ? `${location.pathname}?${params.toString()}`
-      : location.pathname;
-    
-    window.history.replaceState({}, '', newUrl);
-  };
-  
-  // Toggle filter menu
-  const toggleFilterMenu = (filterName) => {
-    if (activeFilter === filterName) {
-      setIsFilterOpen(false);
-      setActiveFilter(null);
-    } else {
-      setIsFilterOpen(true);
-      setActiveFilter(filterName);
-    }
-  };
-  
-  // Clear all filters
-  const clearFilters = () => {
-    setSelectedDomain('all');
-    setSelectedTechnology('all');
-    setSelectedDifficulty('all');
-    setSearchQuery('');
-    setCurrentPage(1);
-    setSortBy('-createdAt');
-  };
-
-  // Handle pagination
-  const handlePageChange = (newPage) => {
-    setCurrentPage(newPage);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   // Check if tutorial is bookmarked
@@ -254,6 +127,72 @@ const TutorialPage = () => {
       alert('Failed to update bookmark. Please try again.');
     }
   };
+
+  // Get domain icon
+  const getDomainIcon = (domainName) => {
+    const name = domainName?.toLowerCase() || '';
+    
+    if (name.includes('web')) return '🌐';
+    if (name.includes('mobile')) return '📱';
+    if (name.includes('data')) return '📊';
+    if (name.includes('machine') || name.includes('ai')) return '🤖';
+    if (name.includes('game')) return '🎮';
+    if (name.includes('design')) return '🎨';
+    if (name.includes('security')) return '🔒';
+    if (name.includes('cloud')) return '☁️';
+    return '💻';
+  };
+
+  // Get domain colors
+  const getDomainColors = (domainName) => {
+    const name = domainName?.toLowerCase() || '';
+    
+    const domainColors = COLORS.domains;
+    if (name.includes('web')) return domainColors.web;
+    if (name.includes('mobile')) return domainColors.mobile;
+    if (name.includes('data')) return domainColors.data;
+    if (name.includes('machine') || name.includes('ai')) return domainColors.ai;
+    if (name.includes('game')) return domainColors.game;
+    if (name.includes('design')) return domainColors.design;
+    if (name.includes('security')) return domainColors.security;
+    if (name.includes('cloud')) return domainColors.cloud;
+    return { bg: COLORS.gradients.primary, text: COLORS.text.white };
+  };
+  
+  if (isLoading) {
+    return (
+      <div className={`min-h-screen ${COLORS.background.secondary}`}>
+        <div className="flex flex-col items-center justify-center min-h-[50vh]">
+          <Loader size={40} className={`animate-spin ${COLORS.text.primary} mb-4`} />
+          <p className={COLORS.text.secondary}>Loading tutorial domains...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className={`min-h-screen ${COLORS.background.secondary}`}>
+        <div className="max-w-4xl mx-auto px-4 py-8">
+          <div className={`${COLORS.status.error.bg} border-l-4 ${COLORS.status.error.border} p-4 mb-6`}>
+            <div className="flex items-start">
+              <AlertCircle className={`flex-shrink-0 h-5 w-5 ${COLORS.status.error.text} mt-0.5`} />
+              <div className="ml-3">
+                <h3 className={`text-sm font-medium ${COLORS.status.error.text}`}>Error loading content</h3>
+                <p className={`text-sm ${COLORS.status.error.text} mt-1`}>{error}</p>
+              </div>
+            </div>
+          </div>
+          <button 
+            onClick={fetchInitialData}
+            className={`${COLORS.button.primary} px-4 py-2 rounded-lg`}
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
   
   return (
     <div className={`min-h-screen ${COLORS.background.secondary}`}>
@@ -261,376 +200,186 @@ const TutorialPage = () => {
       <div className={`${COLORS.background.white} py-16 px-4 sm:px-6 lg:px-8`}>
         <div className="max-w-6xl mx-auto text-center">
           <h1 className={`text-3xl md:text-4xl font-bold ${COLORS.text.dark} mb-4`}>
-            Tutorial Library
+            Learn to Code
           </h1>
           <p className={`text-lg ${COLORS.text.secondary} max-w-2xl mx-auto mb-8`}>
-            Discover our comprehensive collection of interactive programming tutorials designed to help you master coding skills.
+            Explore our comprehensive learning domains and discover the path that's right for you. 
+            From web development to data science, we have interactive tutorials for every interest.
           </p>
           
-          {/* Search Bar */}
-          <div className="max-w-2xl mx-auto relative">
-            <input
-              type="text"
-              placeholder="Search tutorials, topics, or technologies..."
-              className={`w-full py-4 pl-12 pr-12 text-lg ${COLORS.background.white} ${COLORS.border.secondary} border-2 rounded-xl ${COLORS.interactive.focus.outline} ${COLORS.interactive.focus.ring} shadow-sm transition-all duration-200 hover:shadow-md`}
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setCurrentPage(1);
-              }}
-              disabled={isLoading}
-            />
-            <Search className={`absolute left-4 top-5 ${COLORS.text.tertiary}`} size={24} />
-            {searchQuery && (
-              <button
-                onClick={() => {
-                  setSearchQuery('');
-                  setCurrentPage(1);
-                }}
-                className={`absolute right-4 top-5 ${COLORS.text.tertiary} hover:${COLORS.text.secondary} transition-colors`}
-              >
-                <X size={20} />
-              </button>
-            )}
+          {/* Stats */}
+          <div className="flex flex-wrap justify-center gap-8 text-sm">
+            <div className={`flex items-center ${COLORS.text.primary}`}>
+              <Layers size={16} className="mr-2" />
+              <span className="font-semibold">{domains.length}</span>
+              <span className="ml-1">Learning Domains</span>
+            </div>
+            <div className={`flex items-center ${COLORS.text.primary}`}>
+              <BookOpen size={16} className="mr-2" />
+              <span className="font-semibold">100+</span>
+              <span className="ml-1">Tutorials</span>
+            </div>
+            <div className={`flex items-center ${COLORS.text.primary}`}>
+              <Users size={16} className="mr-2" />
+              <span className="font-semibold">Interactive</span>
+              <span className="ml-1">Learning</span>
+            </div>
+            <div className={`flex items-center ${COLORS.text.primary}`}>
+              <Star size={16} className="mr-2" />
+              <span className="font-semibold">All Levels</span>
+              <span className="ml-1">Welcome</span>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Filter Bar */}
-        <div className="mb-8">
-          <div className="flex flex-wrap gap-3 items-center justify-between">
-            <div className="flex flex-wrap gap-3">
-              {/* Domain Filter */}
-              <div className="relative">
-                <button
-                  onClick={() => toggleFilterMenu('domain')}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                    selectedDomain !== 'all' 
-                      ? `${COLORS.background.primary} ${COLORS.text.white} shadow-md` 
-                      : `${COLORS.background.white} ${COLORS.text.secondary} ${COLORS.border.secondary} border hover:${COLORS.background.tertiary}`
-                  }`}
-                  disabled={isLoading || domains.length === 0}
-                >
-                  <span>
-                    {selectedDomain === 'all' 
-                      ? 'All Domains' 
-                      : domains.find(d => d._id === selectedDomain)?.name || 'Domain'}
-                  </span>
-                  <ChevronDown size={16} className={`transition-transform ${activeFilter === 'domain' && isFilterOpen ? 'rotate-180' : ''}`} />
-                </button>
-                
-                {activeFilter === 'domain' && isFilterOpen && (
-                  <div className={`absolute z-20 mt-2 w-64 ${COLORS.background.white} ${COLORS.border.secondary} border rounded-xl shadow-xl`}>
-                    <div className="p-2 max-h-60 overflow-y-auto">
-                      <div 
-                        className={`px-3 py-2 rounded-lg cursor-pointer transition-colors ${selectedDomain === 'all' ? `${COLORS.background.primaryLight} ${COLORS.text.primary}` : `hover:${COLORS.background.tertiary}`}`}
-                        onClick={() => {
-                          setSelectedDomain('all');
-                          setCurrentPage(1);
-                          setIsFilterOpen(false);
-                        }}
-                      >
-                        All Domains
-                      </div>
-                      {domains.map(domain => (
-                        <div 
-                          key={domain._id}
-                          className={`px-3 py-2 rounded-lg cursor-pointer transition-colors ${selectedDomain === domain._id ? `${COLORS.background.primaryLight} ${COLORS.text.primary}` : `hover:${COLORS.background.tertiary}`}`}
-                          onClick={() => {
-                            setSelectedDomain(domain._id);
-                            setCurrentPage(1);
-                            setIsFilterOpen(false);
-                          }}
-                        >
-                          {domain.name}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-              
-              {/* Technology Filter */}
-              <div className="relative">
-                <button
-                  onClick={() => toggleFilterMenu('technology')}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                    selectedTechnology !== 'all' 
-                      ? `${COLORS.background.primary} ${COLORS.text.white} shadow-md` 
-                      : `${COLORS.background.white} ${COLORS.text.secondary} ${COLORS.border.secondary} border hover:${COLORS.background.tertiary}`
-                  }`}
-                  disabled={isLoading || technologies.length === 0}
-                >
-                  <span>
-                    {selectedTechnology === 'all' 
-                      ? 'All Technologies' 
-                      : technologies.find(t => t._id === selectedTechnology)?.name || 'Technology'}
-                  </span>
-                  <ChevronDown size={16} className={`transition-transform ${activeFilter === 'technology' && isFilterOpen ? 'rotate-180' : ''}`} />
-                </button>
-                
-                {activeFilter === 'technology' && isFilterOpen && (
-                  <div className={`absolute z-20 mt-2 w-64 ${COLORS.background.white} ${COLORS.border.secondary} border rounded-xl shadow-xl`}>
-                    <div className="p-2 max-h-60 overflow-y-auto">
-                      <div 
-                        className={`px-3 py-2 rounded-lg cursor-pointer transition-colors ${selectedTechnology === 'all' ? `${COLORS.background.primaryLight} ${COLORS.text.primary}` : `hover:${COLORS.background.tertiary}`}`}
-                        onClick={() => {
-                          setSelectedTechnology('all');
-                          setCurrentPage(1);
-                          setIsFilterOpen(false);
-                        }}
-                      >
-                        All Technologies
-                      </div>
-                      {technologies.map(tech => (
-                        <div 
-                          key={tech._id}
-                          className={`px-3 py-2 rounded-lg cursor-pointer transition-colors ${selectedTechnology === tech._id ? `${COLORS.background.primaryLight} ${COLORS.text.primary}` : `hover:${COLORS.background.tertiary}`}`}
-                          onClick={() => {
-                            setSelectedTechnology(tech._id);
-                            setCurrentPage(1);
-                            setIsFilterOpen(false);
-                          }}
-                        >
-                          {tech.name}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-              
-              {/* Difficulty Filter */}
-              <div className="relative">
-                <button
-                  onClick={() => toggleFilterMenu('difficulty')}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                    selectedDifficulty !== 'all' 
-                      ? `${COLORS.background.primary} ${COLORS.text.white} shadow-md` 
-                      : `${COLORS.background.white} ${COLORS.text.secondary} ${COLORS.border.secondary} border hover:${COLORS.background.tertiary}`
-                  }`}
-                  disabled={isLoading}
-                >
-                  <span>
-                    {selectedDifficulty === 'all' 
-                      ? 'All Levels' 
-                      : selectedDifficulty.charAt(0).toUpperCase() + selectedDifficulty.slice(1)}
-                  </span>
-                  <ChevronDown size={16} className={`transition-transform ${activeFilter === 'difficulty' && isFilterOpen ? 'rotate-180' : ''}`} />
-                </button>
-                
-                {activeFilter === 'difficulty' && isFilterOpen && (
-                  <div className={`absolute z-20 mt-2 w-48 ${COLORS.background.white} ${COLORS.border.secondary} border rounded-xl shadow-xl`}>
-                    <div className="p-2">
-                      {['all', 'beginner', 'intermediate', 'advanced'].map(level => (
-                        <div 
-                          key={level}
-                          className={`px-3 py-2 rounded-lg cursor-pointer transition-colors ${selectedDifficulty === level ? `${COLORS.background.primaryLight} ${COLORS.text.primary}` : `hover:${COLORS.background.tertiary}`}`}
-                          onClick={() => {
-                            setSelectedDifficulty(level);
-                            setCurrentPage(1);
-                            setIsFilterOpen(false);
-                          }}
-                        >
-                          {level === 'all' ? 'All Levels' : level.charAt(0).toUpperCase() + level.slice(1)}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-              
-              {/* Clear Filters Button */}
-              {(selectedDomain !== 'all' || selectedTechnology !== 'all' || selectedDifficulty !== 'all' || searchQuery) && (
-                <button
-                  onClick={clearFilters}
-                  className={`flex items-center gap-2 px-4 py-2 ${COLORS.status.error.bg} ${COLORS.status.error.text} rounded-lg text-sm font-medium hover:bg-red-100 transition-colors`}
-                  disabled={isLoading || isFiltering}
-                >
-                  <X size={14} />
-                  Clear Filters
-                </button>
-              )}
-            </div>
-
-            {/* Sort Dropdown */}
-            <div>
-              <select
-                value={sortBy}
-                onChange={(e) => {
-                  setSortBy(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className={`px-4 py-2 ${COLORS.border.secondary} border rounded-lg text-sm ${COLORS.interactive.focus.outline} ${COLORS.interactive.focus.ring}`}
-                disabled={isLoading}
-              >
-                <option value="-createdAt">Newest First</option>
-                <option value="createdAt">Oldest First</option>
-                <option value="title">Title A-Z</option>
-                <option value="-title">Title Z-A</option>
-                <option value="difficulty">Difficulty: Easy to Hard</option>
-              </select>
-            </div>
-          </div>
-        </div>
         
-        {/* Error Message */}
-        {error && (
-          <div className={`mb-6 p-4 ${COLORS.status.error.bg} ${COLORS.status.error.text} rounded-lg flex items-center`}>
-            <AlertCircle size={18} className="mr-3 flex-shrink-0" />
-            <span>{error}</span>
-          </div>
-        )}
-        
-        {/* Results Count */}
-        <div className="mb-6 flex justify-between items-center">
-          <p className={COLORS.text.secondary}>
-            {isFiltering ? (
-              <span className="flex items-center gap-2">
-                <Loader size={16} className="animate-spin" />
-                Filtering tutorials...
-              </span>
-            ) : (
-              <>
-                <span className="font-medium">{totalTutorials}</span> {totalTutorials === 1 ? 'tutorial' : 'tutorials'} found
-                {searchQuery && <span> for "{searchQuery}"</span>}
-                {totalPages > 1 && (
-                  <span> (Page {currentPage} of {totalPages})</span>
-                )}
-              </>
-            )}
-          </p>
-        </div>
-
-        {/* Loading State */}
-        {isLoading && (
-          <div className="text-center py-16">
-            <Loader size={40} className={`animate-spin mx-auto mb-4 ${COLORS.text.primary}`} />
-            <p className={COLORS.text.secondary}>Loading tutorials...</p>
-          </div>
-        )}
-        
-        {/* Tutorial Cards Grid */}
-        {!isLoading && tutorials.length > 0 ? (
-          <>
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-12">
-              {tutorials.map(tutorial => (
-                <TutorialCard 
-                  key={tutorial._id} 
-                  tutorial={tutorial} 
-                  user={user}
-                  isBookmarked={isTutorialBookmarked(tutorial._id)}
-                  progress={getTutorialProgress(tutorial._id)}
-                  onBookmarkToggle={(e) => toggleBookmark(e, tutorial._id)}
-                />
+        {/* Learning Domains Section */}
+        <div className="mb-12">
+          <h2 className={`text-2xl font-bold ${COLORS.text.dark} mb-6`}>Choose Your Learning Path</h2>
+          
+          {domains.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {domains.map((domain) => (
+                <DomainCard key={domain._id} domain={domain} />
               ))}
             </div>
-
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="flex justify-center items-center gap-2">
-                <button
-                  onClick={() => handlePageChange(currentPage - 1)}
-                  disabled={currentPage === 1 || isFiltering}
-                  className={`px-4 py-2 ${COLORS.border.secondary} border rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:${COLORS.background.tertiary} transition-colors`}
-                >
-                  Previous
-                </button>
-                
-                {[...Array(Math.min(totalPages, 5))].map((_, index) => {
-                  const pageNumber = currentPage <= 3 ? index + 1 : currentPage - 2 + index;
-                  if (pageNumber > totalPages) return null;
-                  
-                  return (
-                    <button
-                      key={pageNumber}
-                      onClick={() => handlePageChange(pageNumber)}
-                      disabled={isFiltering}
-                      className={`px-4 py-2 border rounded-lg transition-colors ${
-                        currentPage === pageNumber 
-                          ? `${COLORS.background.primary} ${COLORS.text.white} ${COLORS.border.primaryDark}` 
-                          : `${COLORS.border.secondary} hover:${COLORS.background.tertiary}`
-                      }`}
-                    >
-                      {pageNumber}
-                    </button>
-                  );
-                })}
-                
-                <button
-                  onClick={() => handlePageChange(currentPage + 1)}
-                  disabled={currentPage === totalPages || isFiltering}
-                  className={`px-4 py-2 ${COLORS.border.secondary} border rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:${COLORS.background.tertiary} transition-colors`}
-                >
-                  Next
-                </button>
+          ) : (
+            <div className={`text-center py-12 ${COLORS.background.white} rounded-xl ${COLORS.border.secondary} border`}>
+              <div className={`mx-auto w-16 h-16 ${COLORS.background.tertiary} rounded-full flex items-center justify-center mb-6`}>
+                <Layers size={28} className={COLORS.text.tertiary} />
               </div>
-            )}
-          </>
-        ) : !isLoading && (
-          <div className={`text-center py-16 ${COLORS.background.white} rounded-xl ${COLORS.border.secondary} border`}>
-            <div className={`mx-auto w-16 h-16 ${COLORS.background.tertiary} rounded-full flex items-center justify-center mb-6`}>
-              <Search size={28} className={COLORS.text.tertiary} />
+              <h3 className={`text-xl font-semibold ${COLORS.text.dark} mb-2`}>No domains available</h3>
+              <p className={`${COLORS.text.secondary} mb-6`}>
+                Learning domains will be available soon.
+              </p>
             </div>
-            <h3 className={`text-xl font-semibold ${COLORS.text.dark} mb-2`}>No tutorials found</h3>
-            <p className={`${COLORS.text.secondary} mb-6`}>
-              Try adjusting your search or filters to find tutorials.
+          )}
+        </div>
+
+        
+
+        {/* Get Started CTA */}
+        <div className={`${COLORS.background.white} rounded-xl p-8 text-center ${COLORS.border.secondary} border`}>
+          <h3 className={`text-xl font-bold mb-2 ${COLORS.text.dark}`}>Ready to start your coding journey?</h3>
+          <p className={`${COLORS.text.secondary} mb-6`}>
+            Join thousands of learners who are building their programming skills with our interactive tutorials.
+          </p>
+          {!isAuthenticated ? (
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Link
+                to="/register"
+                className={`px-6 py-3 ${COLORS.button.primary} rounded-lg font-medium`}
+              >
+                Get Started Free
+              </Link>
+              <Link
+                to="/login"
+                className={`px-6 py-3 ${COLORS.button.outline} rounded-lg font-medium`}
+              >
+                Sign In
+              </Link>
+            </div>
+          ) : (
+            <p className={`${COLORS.text.primary} font-medium`}>
+              Welcome back! Choose a domain above to continue learning.
             </p>
-            <button
-              onClick={clearFilters}
-              className={`inline-flex items-center gap-2 px-6 py-3 ${COLORS.button.primary} rounded-lg transition-colors duration-200`}
-            >
-              <X size={16} />
-              Clear filters
-            </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );
 };
 
-// Enhanced Tutorial Card Component
+// Domain Card Component
+const DomainCard = ({ domain }) => {
+  const getDomainIcon = (domainName) => {
+    const name = domainName?.toLowerCase() || '';
+    
+    if (name.includes('web')) return '🌐';
+    if (name.includes('mobile')) return '📱';
+    if (name.includes('data')) return '📊';
+    if (name.includes('machine') || name.includes('ai')) return '🤖';
+    if (name.includes('game')) return '🎮';
+    if (name.includes('design')) return '🎨';
+    if (name.includes('security')) return '🔒';
+    if (name.includes('cloud')) return '☁️';
+    return '💻';
+  };
+
+  const getDomainColors = (domainName) => {
+    const name = domainName?.toLowerCase() || '';
+    
+    const domainColors = COLORS.domains;
+    if (name.includes('web')) return domainColors.web;
+    if (name.includes('mobile')) return domainColors.mobile;
+    if (name.includes('data')) return domainColors.data;
+    if (name.includes('machine') || name.includes('ai')) return domainColors.ai;
+    if (name.includes('game')) return domainColors.game;
+    if (name.includes('design')) return domainColors.design;
+    if (name.includes('security')) return domainColors.security;
+    if (name.includes('cloud')) return domainColors.cloud;
+    return { bg: COLORS.gradients.primary, text: COLORS.text.white };
+  };
+
+  const colors = getDomainColors(domain.name);
+
+  return (
+    <Link 
+      to={`/domains/${domain.slug || domain._id}`}
+      className={`block ${COLORS.background.white} rounded-xl ${COLORS.border.secondary} border hover:shadow-lg transition-all duration-300 overflow-hidden group`}
+    >
+      {/* Domain Header */}
+      <div className={`bg-gradient-to-r ${colors.bg} p-6 text-white relative overflow-hidden`}>
+        <div className="absolute top-0 right-0 w-20 h-20 bg-white bg-opacity-10 rounded-full translate-x-6 -translate-y-6"></div>
+        <div className="relative">
+          <div className="text-4xl mb-3">
+            {getDomainIcon(domain.name)}
+          </div>
+          <h3 className="text-lg font-bold">{domain.name}</h3>
+        </div>
+      </div>
+      
+      {/* Domain Body */}
+      <div className="p-6">
+        <p className={`${COLORS.text.secondary} text-sm mb-4 leading-relaxed line-clamp-3`}>
+          {domain.description}
+        </p>
+        
+        {/* Action */}
+        <div className={`flex items-center ${COLORS.text.primary} font-medium text-sm group-hover:gap-2 transition-all duration-200`}>
+          <span>Explore Domain</span>
+          <ArrowRight size={16} className="ml-1 group-hover:translate-x-1 transition-transform duration-200" />
+        </div>
+      </div>
+    </Link>
+  );
+};
+
+// Enhanced Tutorial Card Component (simplified for featured section)
 const TutorialCard = ({ tutorial, user, isBookmarked = false, progress = 0, onBookmarkToggle }) => {
   const navigate = useNavigate();
-
-  // Get technology icon with colors
-  const getTechnologyIcon = (tutorial) => {
-    const techName = tutorial.technology?.name?.toLowerCase() || '';
-    
-    if (techName.includes('html')) return { icon: 'HTML', color: 'from-orange-500 to-red-500' };
-    if (techName.includes('css')) return { icon: 'CSS', color: 'from-blue-500 to-cyan-500' };
-    if (techName.includes('javascript')) return { icon: 'JS', color: 'from-yellow-400 to-yellow-600' };
-    if (techName.includes('react')) return { icon: 'React', color: 'from-cyan-500 to-blue-500' };
-    if (techName.includes('node')) return { icon: 'Node', color: 'from-green-500 to-green-600' };
-    if (techName.includes('python')) return { icon: 'Py', color: 'from-blue-600 to-purple-600' };
-    
-    return { 
-      icon: tutorial.technology?.name?.substring(0, 2).toUpperCase() || 'CODE', 
-      color: COLORS.gradients.primary 
-    };
-  };
 
   const handleCardClick = () => {
     navigate(`/tutorials/${tutorial.slug || tutorial._id}`);
   };
-  
-  const techInfo = getTechnologyIcon(tutorial);
+
+  const getDifficultyColor = (difficulty) => {
+    return COLORS.difficulty[difficulty] || COLORS.difficulty.beginner;
+  };
   
   return (
     <div 
       className={`${COLORS.background.white} rounded-xl ${COLORS.border.secondary} border hover:shadow-lg transition-all duration-300 cursor-pointer overflow-hidden group`}
       onClick={handleCardClick}
     >
-      {/* Card Header */}
-      <div className={`bg-gradient-to-r ${techInfo.color} p-6 relative`}>
-        <div className="flex justify-between items-start">
-          <div className={`${COLORS.background.white} bg-opacity-20 backdrop-blur-sm rounded-lg p-3 inline-flex items-center justify-center`}>
-            <span className="text-white font-bold text-sm">
-              {techInfo.icon}
-            </span>
+      {/* Card Body */}
+      <div className="p-6">
+        <div className="flex items-center justify-between mb-3">
+          <div className={`px-3 py-1 rounded-full text-xs font-medium ${getDifficultyColor(tutorial.difficulty)}`}>
+            {tutorial.difficulty?.charAt(0).toUpperCase() + tutorial.difficulty?.slice(1) || 'Beginner'}
           </div>
           
           {/* Bookmark button */}
@@ -639,25 +388,16 @@ const TutorialCard = ({ tutorial, user, isBookmarked = false, progress = 0, onBo
               onClick={onBookmarkToggle}
               className={`p-2 rounded-lg transition-all duration-200 ${
                 isBookmarked 
-                  ? 'text-yellow-400 bg-white bg-opacity-20' 
-                  : 'text-white bg-black bg-opacity-20 hover:bg-opacity-30'
+                  ? 'text-yellow-400 bg-yellow-50' 
+                  : `${COLORS.text.tertiary} hover:${COLORS.text.secondary} hover:${COLORS.background.tertiary}`
               }`}
             >
               <Bookmark size={16} className={isBookmarked ? 'fill-yellow-400' : ''} />
             </button>
           )}
         </div>
-      </div>
-      
-      {/* Card Body */}
-      <div className="p-6">
-        <div className="flex items-center justify-between mb-3">
-          <div className={`px-3 py-1 rounded-full text-xs font-medium ${COLORS.difficulty[tutorial.difficulty] || COLORS.difficulty.beginner}`}>
-            {tutorial.difficulty?.charAt(0).toUpperCase() + tutorial.difficulty?.slice(1) || 'Beginner'}
-          </div>
-        </div>
         
-        <h3 className={`text-lg font-semibold ${COLORS.text.dark} mb-2 group-hover:${COLORS.text.primary} transition-colors`}>
+        <h3 className={`text-lg font-semibold ${COLORS.text.dark} mb-2 group-hover:${COLORS.text.primary} transition-colors line-clamp-2`}>
           {tutorial.title}
         </h3>
         

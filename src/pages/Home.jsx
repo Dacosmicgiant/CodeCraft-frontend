@@ -189,55 +189,7 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* Featured Courses */}
-      <section 
-        id="courses" 
-        className={`py-12 sm:py-16 lg:py-20 ${COLORS.background.white} transition-opacity duration-700 ${
-          isVisible.courses ? 'opacity-100' : 'opacity-0'
-        }`}
-      >
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-8 sm:mb-12">
-            <h2 className={`text-2xl sm:text-3xl lg:text-4xl font-bold ${COLORS.text.dark} mb-3 sm:mb-4`}>Popular Tutorials</h2>
-            <p className={`text-base sm:text-lg lg:text-xl ${COLORS.text.secondary} max-w-2xl mx-auto px-4`}>
-              Start with our most popular programming tutorials
-            </p>
-          </div>
-
-          {isLoading && (
-            <div className="flex justify-center py-8 sm:py-12">
-              <Loader size={32} className={`animate-spin ${COLORS.text.primary}`} />
-            </div>
-          )}
-
-          {error && (
-            <div className={`text-center py-6 sm:py-8 ${COLORS.status.error.text} px-4`}>
-              <p>{error}</p>
-            </div>
-          )}
-
-          {!isLoading && !error && (
-            <div className="grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {featuredTutorials.slice(0, 6).map((tutorial, index) => (
-                <CourseCard 
-                  key={tutorial._id}
-                  tutorial={tutorial}
-                  icon={getTechnologyIcon(tutorial.technology?.name)}
-                />
-              ))}
-            </div>
-          )}
-
-          <div className="text-center mt-8 sm:mt-12">
-            <Link 
-              to="/tutorials" 
-              className={`inline-flex items-center gap-2 ${COLORS.text.primary} font-medium hover:${COLORS.text.primaryHover} transition-colors text-sm sm:text-base`}
-            >
-              View All Tutorials <ArrowRight size={16} />
-            </Link>
-          </div>
-        </div>
-      </section>
+     
 
       {/* CTA Section */}
       <section 

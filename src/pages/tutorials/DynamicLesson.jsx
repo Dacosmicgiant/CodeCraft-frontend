@@ -3,24 +3,21 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { 
   ArrowLeft, 
   ArrowRight, 
-  Bookmark, 
   Share2, 
-  Check,
   AlertCircle,
   Clock,
   BookOpen,
   Loader,
-  Play,
-  Pause,
   Copy,
   ExternalLink,
   Quote,
   AlertTriangle,
   CheckSquare,
-  Square
+  Square,
+  Check,
+  Play
 } from 'lucide-react';
-import { lessonAPI, tutorialAPI, userAPI } from '../../services/api';
-import NotesComponent from '../../components/tutorial/NotesComponent';
+import { lessonAPI, tutorialAPI } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
 import { COLORS } from '../../constants/colors';
 
@@ -37,18 +34,10 @@ const DynamicLesson = () => {
   const [currentLessonIndex, setCurrentLessonIndex] = useState(-1);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [hasCompletedLesson, setHasCompletedLesson] = useState(false);
-  const [isMarkingComplete, setIsMarkingComplete] = useState(false);
   
   useEffect(() => {
     fetchLessonData();
   }, [lessonId, tutorialId, lessonSlug]);
-
-  useEffect(() => {
-    if (lesson && tutorial && isAuthenticated) {
-      checkCompletionStatus();
-    }
-  }, [lesson, tutorial, isAuthenticated]);
 
   const fetchLessonData = async () => {
     try {
@@ -135,53 +124,6 @@ const DynamicLesson = () => {
       setError('Failed to load lesson content. Please try again.');
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const checkCompletionStatus = async () => {
-    try {
-      const progressResponse = await userAPI.getProgress();
-      const progressItems = progressResponse.data || [];
-      
-      const tutorialProgress = progressItems.find(item => 
-        item.tutorial === tutorial._id || 
-        (item.tutorial && item.tutorial._id === tutorial._id)
-      );
-      
-      if (tutorialProgress && allLessons.length > 0) {
-        const expectedProgress = ((currentLessonIndex + 1) / allLessons.length) * 100;
-        setHasCompletedLesson(tutorialProgress.completion >= expectedProgress);
-      }
-    } catch (err) {
-      console.warn('Could not check completion status:', err);
-    }
-  };
-  
-  const markAsCompleted = async () => {
-    if (!isAuthenticated) {
-      navigate('/login');
-      return;
-    }
-    
-    setIsMarkingComplete(true);
-    
-    try {
-      const newProgress = ((currentLessonIndex + 1) / allLessons.length) * 100;
-      setHasCompletedLesson(true);
-      
-      setTimeout(() => {
-        if (nextLesson) {
-          navigate(`/lessons/${nextLesson._id}`);
-        } else {
-          navigate(`/tutorials/${tutorial.slug || tutorial._id}`);
-        }
-      }, 1500);
-      
-    } catch (err) {
-      console.error('Error marking lesson as completed:', err);
-      alert('Failed to update progress. Please try again.');
-    } finally {
-      setIsMarkingComplete(false);
     }
   };
   
@@ -637,6 +579,37 @@ const DynamicLesson = () => {
             </Link>
           </li>
           <span className={`${COLORS.text.tertiary} mx-2`}>/</span>
+          
+          {/* Domain breadcrumb (if available) */}
+          {tutorial?.domain && (
+            <>
+              <li>
+                <Link 
+                  to={`/domains/${tutorial.domain.slug || tutorial.domain._id || tutorial.domain}`}
+                  className={`${COLORS.text.primary} hover:${COLORS.text.primaryHover} hover:underline`}
+                >
+                  {tutorial.domain.name || tutorial.domain}
+                </Link>
+              </li>
+              <span className={`${COLORS.text.tertiary} mx-2`}>/</span>
+            </>
+          )}
+          
+          {/* Technology breadcrumb (if available) */}
+          {tutorial?.technology && (
+            <>
+              <li>
+                <Link 
+                  to={`/technologies/${tutorial.technology.slug || tutorial.technology._id || tutorial.technology}`}
+                  className={`${COLORS.text.primary} hover:${COLORS.text.primaryHover} hover:underline`}
+                >
+                  {tutorial.technology.name || tutorial.technology}
+                </Link>
+              </li>
+              <span className={`${COLORS.text.tertiary} mx-2`}>/</span>
+            </>
+          )}
+          
           <li>
             <Link 
               to={`/tutorials/${tutorial.slug || tutorial._id}`} 
@@ -672,22 +645,6 @@ const DynamicLesson = () => {
           </button>
         </div>
       </div>
-
-      {/* Lesson Progress Indicator */}
-      {allLessons.length > 0 && (
-        <div className="mb-6">
-          <div className={`flex justify-between text-sm ${COLORS.text.secondary} mb-2`}>
-            <span>Lesson {currentLessonIndex + 1} of {allLessons.length}</span>
-            <span>{Math.round(((currentLessonIndex + 1) / allLessons.length) * 100)}% Complete</span>
-          </div>
-          <div className={`w-full ${COLORS.background.tertiary} rounded-full h-2`}>
-            <div 
-              className={`${COLORS.background.primary} h-2 rounded-full transition-all duration-300`} 
-              style={{ width: `${((currentLessonIndex + 1) / allLessons.length) * 100}%` }}
-            ></div>
-          </div>
-        </div>
-      )}
       
       {/* Tutorial/Lesson Info */}
       <div className="mb-8">
@@ -701,22 +658,14 @@ const DynamicLesson = () => {
         <div className={`flex items-center text-sm ${COLORS.text.secondary}`}>
           <Clock size={16} className="mr-1" />
           <span>{lesson.duration || 10} min</span>
-          {hasCompletedLesson && (
+          {allLessons.length > 0 && (
             <>
               <span className="mx-2">•</span>
-              <Check size={16} className="mr-1 text-green-600" />
-              <span className="text-green-600">Completed</span>
+              <span>Lesson {currentLessonIndex + 1} of {allLessons.length}</span>
             </>
           )}
         </div>
       </div>
-      
-      {/* Notes Component */}
-      {isAuthenticated && (
-        <div className="mb-8">
-          <NotesComponent tutorialId={tutorial._id} sectionId={lesson._id} />
-        </div>
-      )}
       
       {/* Lesson Content */}
       <div className="mb-12">
@@ -746,30 +695,6 @@ const DynamicLesson = () => {
           );
         })()}
       </div>
-      
-      {/* Lesson Actions */}
-      {isAuthenticated && (
-        <div className={`${COLORS.background.tertiary} border rounded-lg p-6 mb-8`}>
-          <div className="flex justify-center">
-            <button
-              onClick={markAsCompleted}
-              disabled={hasCompletedLesson || isMarkingComplete}
-              className={`px-8 py-3 rounded-lg flex items-center gap-2 font-medium transition-colors ${
-                hasCompletedLesson 
-                  ? `${COLORS.status.success.bg} ${COLORS.status.success.text} cursor-default` 
-                  : `${COLORS.button.primary} disabled:opacity-70`
-              }`}
-            >
-              {isMarkingComplete ? (
-                <Loader size={18} className="animate-spin" />
-              ) : (
-                <Check size={18} />
-              )}
-              {hasCompletedLesson ? 'Lesson Completed' : 'Mark as Completed'}
-            </button>
-          </div>
-        </div>
-      )}
       
       {/* Lesson Navigation Controls */}
       <div className={`border-t ${COLORS.border.secondary} pt-8 mt-12`}>

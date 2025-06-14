@@ -234,6 +234,22 @@ const DynamicTechnology = () => {
             </Link>
           </li>
           <span className={`${COLORS.text.tertiary} mx-2`}>/</span>
+          
+          {/* Domain breadcrumb (if available) */}
+          {technology?.domain && (
+            <>
+              <li>
+                <Link 
+                  to={`/domains/${technology.domain.slug || technology.domain._id || technology.domain}`}
+                  className={`${COLORS.text.primary} hover:${COLORS.text.primaryHover} hover:underline`}
+                >
+                  {technology.domain.name || technology.domain}
+                </Link>
+              </li>
+              <span className={`${COLORS.text.tertiary} mx-2`}>/</span>
+            </>
+          )}
+          
           <li>
             <span className={`${COLORS.text.secondary} font-medium`}>{technology.name}</span>
           </li>
