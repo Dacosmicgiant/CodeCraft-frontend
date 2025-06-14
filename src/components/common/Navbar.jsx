@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { BookOpen, Menu, Search, X, User, ChevronDown } from 'lucide-react';
+import { BookOpen, Menu, Search, X, ChevronDown } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { COLORS } from '../../constants/colors';
 import scrollLock from './../../utils/scrollLock';
@@ -152,25 +152,7 @@ const Navbar = ({ onMobileMenuToggle }) => {
                       <p className={`font-medium ${COLORS.text.dark} text-sm`}>{user.username}</p>
                       <p className={`${COLORS.text.tertiary} text-xs`}>{user.email}</p>
                     </div>
-                    <DropdownLink 
-                      to="/profile" 
-                      onClick={() => setIsDropdownOpen(false)}
-                    >
-                      Profile
-                    </DropdownLink>
-                    <DropdownLink 
-                      to="/progress" 
-                      onClick={() => setIsDropdownOpen(false)}
-                    >
-                      Progress
-                    </DropdownLink>
-                    <DropdownLink 
-                      to="/bookmarks" 
-                      onClick={() => setIsDropdownOpen(false)}
-                    >
-                      Bookmarks
-                    </DropdownLink>
-                    <div className="border-t border-gray-100 mt-1 pt-1">
+                    <div className="pt-1">
                       <button
                         onClick={() => {
                           logout();
@@ -284,18 +266,6 @@ const Navbar = ({ onMobileMenuToggle }) => {
                       </div>
                     </div>
                     
-                    <MobileNavLink to="/profile" active={isActive('/profile')} onClick={toggleMobileMenu}>
-                      Profile
-                    </MobileNavLink>
-                    
-                    <MobileNavLink to="/progress" active={isActive('/progress')} onClick={toggleMobileMenu}>
-                      Progress
-                    </MobileNavLink>
-                    
-                    <MobileNavLink to="/bookmarks" active={isActive('/bookmarks')} onClick={toggleMobileMenu}>
-                      Bookmarks
-                    </MobileNavLink>
-                    
                     <button
                       onClick={() => {
                         logout();
@@ -358,17 +328,6 @@ const MobileNavLink = ({ children, to, active, onClick }) => (
         ? `${COLORS.background.primaryHover} ${COLORS.text.white} shadow-lg`
         : `${COLORS.text.white} hover:bg-white hover:bg-opacity-10`
     }`}
-  >
-    {children}
-  </Link>
-);
-
-// Dropdown Link Component
-const DropdownLink = ({ children, to, onClick }) => (
-  <Link 
-    to={to} 
-    className={`block px-4 py-2 text-sm ${COLORS.text.secondary} ${COLORS.interactive.hover.secondary} transition-colors duration-200`}
-    onClick={onClick}
   >
     {children}
   </Link>

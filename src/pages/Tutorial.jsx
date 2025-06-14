@@ -4,7 +4,6 @@ import {
   BookOpen, 
   Code, 
   ArrowRight,
-  Bookmark,
   Loader,
   AlertCircle,
   Play,
@@ -25,7 +24,6 @@ const TutorialPage = () => {
   // State for domains and featured tutorials
   const [domains, setDomains] = useState([]);
   const [featuredTutorials, setFeaturedTutorials] = useState([]);
-  const [userBookmarks, setUserBookmarks] = useState([]);
   const [userProgress, setUserProgress] = useState([]);
   
   // Loading and error state
@@ -71,23 +69,11 @@ const TutorialPage = () => {
 
   const fetchUserData = async () => {
     try {
-      const [bookmarksRes, progressRes] = await Promise.all([
-        userAPI.getBookmarks(),
-        userAPI.getProgress()
-      ]);
-
-      setUserBookmarks(bookmarksRes.data || []);
+      const progressRes = await userAPI.getProgress();
       setUserProgress(progressRes.data || []);
     } catch (err) {
       console.warn('Could not fetch user data:', err);
     }
-  };
-
-  // Check if tutorial is bookmarked
-  const isTutorialBookmarked = (tutorialId) => {
-    return userBookmarks.some(bookmark => 
-      bookmark._id === tutorialId || bookmark === tutorialId
-    );
   };
 
   // Get user progress for tutorial
@@ -97,35 +83,6 @@ const TutorialPage = () => {
       (p.tutorial && p.tutorial._id === tutorialId)
     );
     return progress ? progress.completion : 0;
-  };
-
-  // Toggle bookmark
-  const toggleBookmark = async (e, tutorialId) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    if (!isAuthenticated) {
-      navigate('/login');
-      return;
-    }
-    
-    try {
-      const isBookmarked = isTutorialBookmarked(tutorialId);
-      
-      if (isBookmarked) {
-        await userAPI.removeBookmark(tutorialId);
-        setUserBookmarks(prev => prev.filter(b => 
-          b._id !== tutorialId && b !== tutorialId
-        ));
-      } else {
-        await userAPI.addBookmark(tutorialId);
-        const bookmarksRes = await userAPI.getBookmarks();
-        setUserBookmarks(bookmarksRes.data || []);
-      }
-    } catch (err) {
-      console.error('Error toggling bookmark:', err);
-      alert('Failed to update bookmark. Please try again.');
-    }
   };
 
   // Get domain icon
@@ -259,8 +216,6 @@ const TutorialPage = () => {
           )}
         </div>
 
-        
-
         {/* Get Started CTA */}
         <div className={`${COLORS.background.white} rounded-xl p-8 text-center ${COLORS.border.secondary} border`}>
           <h3 className={`text-xl font-bold mb-2 ${COLORS.text.dark}`}>Ready to start your coding journey?</h3>
@@ -355,92 +310,6 @@ const DomainCard = ({ domain }) => {
         </div>
       </div>
     </Link>
-  );
-};
-
-// Enhanced Tutorial Card Component (simplified for featured section)
-const TutorialCard = ({ tutorial, user, isBookmarked = false, progress = 0, onBookmarkToggle }) => {
-  const navigate = useNavigate();
-
-  const handleCardClick = () => {
-    navigate(`/tutorials/${tutorial.slug || tutorial._id}`);
-  };
-
-  const getDifficultyColor = (difficulty) => {
-    return COLORS.difficulty[difficulty] || COLORS.difficulty.beginner;
-  };
-  
-  return (
-    <div 
-      className={`${COLORS.background.white} rounded-xl ${COLORS.border.secondary} border hover:shadow-lg transition-all duration-300 cursor-pointer overflow-hidden group`}
-      onClick={handleCardClick}
-    >
-      {/* Card Body */}
-      <div className="p-6">
-        <div className="flex items-center justify-between mb-3">
-          <div className={`px-3 py-1 rounded-full text-xs font-medium ${getDifficultyColor(tutorial.difficulty)}`}>
-            {tutorial.difficulty?.charAt(0).toUpperCase() + tutorial.difficulty?.slice(1) || 'Beginner'}
-          </div>
-          
-          {/* Bookmark button */}
-          {user && (
-            <button
-              onClick={onBookmarkToggle}
-              className={`p-2 rounded-lg transition-all duration-200 ${
-                isBookmarked 
-                  ? 'text-yellow-400 bg-yellow-50' 
-                  : `${COLORS.text.tertiary} hover:${COLORS.text.secondary} hover:${COLORS.background.tertiary}`
-              }`}
-            >
-              <Bookmark size={16} className={isBookmarked ? 'fill-yellow-400' : ''} />
-            </button>
-          )}
-        </div>
-        
-        <h3 className={`text-lg font-semibold ${COLORS.text.dark} mb-2 group-hover:${COLORS.text.primary} transition-colors line-clamp-2`}>
-          {tutorial.title}
-        </h3>
-        
-        <p className={`${COLORS.text.secondary} text-sm mb-4 leading-relaxed line-clamp-3`}>
-          {tutorial.description}
-        </p>
-        
-        {/* Meta info */}
-        <div className={`flex items-center justify-between text-xs mb-4 ${COLORS.text.tertiary}`}>
-          <div className="flex items-center gap-1">
-            <BookOpen size={14} />
-            <span>{tutorial.lessons?.length || 0} lessons</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <Clock size={14} />
-            <span>{tutorial.estimatedTime || 30} min</span>
-          </div>
-        </div>
-        
-        {/* Progress bar for logged in users */}
-        {user && progress > 0 && (
-          <div className="mb-4">
-            <div className="flex justify-between text-xs mb-2">
-              <span className={`font-medium ${COLORS.text.secondary}`}>Progress</span>
-              <span className={COLORS.text.primary}>{Math.round(progress)}%</span>
-            </div>
-            <div className={`w-full ${COLORS.background.tertiary} rounded-full h-2`}>
-              <div 
-                className={`${COLORS.background.primary} h-2 rounded-full transition-all duration-300`}
-                style={{ width: `${progress}%` }}
-              ></div>
-            </div>
-          </div>
-        )}
-        
-        {/* Action */}
-        <div className={`flex items-center ${COLORS.text.primary} font-medium text-sm group-hover:gap-2 transition-all duration-200`}>
-          <Play size={14} className="mr-1" />
-          <span>{user && progress > 0 ? 'Continue Learning' : 'Start Learning'}</span>
-          <ArrowRight size={16} className="ml-1 group-hover:translate-x-1 transition-transform duration-200" />
-        </div>
-      </div>
-    </div>
   );
 };
 

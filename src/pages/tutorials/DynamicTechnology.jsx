@@ -7,7 +7,6 @@ import {
   BarChart, 
   Star,
   Play,
-  Bookmark,
   Users,
   Code,
   AlertCircle,
@@ -28,7 +27,6 @@ const DynamicTechnology = () => {
   
   const [technology, setTechnology] = useState(null);
   const [tutorials, setTutorials] = useState([]);
-  const [userBookmarks, setUserBookmarks] = useState([]);
   const [userProgress, setUserProgress] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -73,12 +71,7 @@ const DynamicTechnology = () => {
 
   const fetchUserData = async () => {
     try {
-      const [bookmarksRes, progressRes] = await Promise.all([
-        userAPI.getBookmarks(),
-        userAPI.getProgress()
-      ]);
-
-      setUserBookmarks(bookmarksRes.data || []);
+      const progressRes = await userAPI.getProgress();
       setUserProgress(progressRes.data || []);
     } catch (err) {
       console.warn('Could not fetch user data:', err);
@@ -110,46 +103,12 @@ const DynamicTechnology = () => {
     }
   };
 
-  const isTutorialBookmarked = (tutorialId) => {
-    return userBookmarks.some(bookmark => 
-      bookmark._id === tutorialId || bookmark === tutorialId
-    );
-  };
-
   const getTutorialProgress = (tutorialId) => {
     const progress = userProgress.find(p => 
       p.tutorial === tutorialId || 
       (p.tutorial && p.tutorial._id === tutorialId)
     );
     return progress ? progress.completion : 0;
-  };
-
-  const toggleBookmark = async (e, tutorialId) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    if (!isAuthenticated) {
-      navigate('/login');
-      return;
-    }
-    
-    try {
-      const isBookmarked = isTutorialBookmarked(tutorialId);
-      
-      if (isBookmarked) {
-        await userAPI.removeBookmark(tutorialId);
-        setUserBookmarks(prev => prev.filter(b => 
-          b._id !== tutorialId && b !== tutorialId
-        ));
-      } else {
-        await userAPI.addBookmark(tutorialId);
-        const bookmarksRes = await userAPI.getBookmarks();
-        setUserBookmarks(bookmarksRes.data || []);
-      }
-    } catch (err) {
-      console.error('Error toggling bookmark:', err);
-      alert('Failed to update bookmark. Please try again.');
-    }
   };
 
   const getTechnologyIcon = () => {
@@ -356,9 +315,7 @@ const DynamicTechnology = () => {
               key={tutorial._id}
               tutorial={tutorial}
               technology={technology}
-              isBookmarked={isTutorialBookmarked(tutorial._id)}
               progress={getTutorialProgress(tutorial._id)}
-              onBookmarkToggle={(e) => toggleBookmark(e, tutorial._id)}
               user={user}
             />
           ))}
@@ -425,7 +382,7 @@ const DynamicTechnology = () => {
 };
 
 // Tutorial Card Component
-const TutorialCard = ({ tutorial, technology, isBookmarked, progress, onBookmarkToggle, user }) => {
+const TutorialCard = ({ tutorial, technology, progress, user }) => {
   const navigate = useNavigate();
 
   const handleCardClick = () => {
@@ -463,21 +420,6 @@ const TutorialCard = ({ tutorial, technology, isBookmarked, progress, onBookmark
               </span>
             </div>
           </div>
-
-          {/* Bookmark button */}
-          {user && (
-            <button
-              onClick={onBookmarkToggle}
-              className={`p-1.5 rounded-full transition-colors ${
-                isBookmarked 
-                  ? 'text-yellow-500 bg-yellow-50' 
-                  : `${COLORS.text.tertiary} hover:${COLORS.text.secondary} hover:${COLORS.background.tertiary}`
-              }`}
-              title={isBookmarked ? 'Remove bookmark' : 'Bookmark tutorial'}
-            >
-              <Bookmark size={16} className={isBookmarked ? 'fill-yellow-500' : ''} />
-            </button>
-          )}
         </div>
       </div>
 

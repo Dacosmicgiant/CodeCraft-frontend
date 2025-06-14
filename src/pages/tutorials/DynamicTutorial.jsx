@@ -2,18 +2,16 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { 
   ArrowLeft, 
-  Bookmark, 
   Share2, 
   BookOpen, 
   AlertCircle,
   Clock,
-  BarChart,
   Loader,
   CheckCircle,
   ArrowRight,
   User
 } from 'lucide-react';
-import { tutorialAPI, lessonAPI, userAPI, technologyAPI, domainAPI } from '../../services/api';
+import { tutorialAPI, lessonAPI, technologyAPI, domainAPI } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
 
 const DynamicTutorial = () => {
@@ -27,19 +25,11 @@ const DynamicTutorial = () => {
   const [domainData, setDomainData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [isBookmarked, setIsBookmarked] = useState(false);
   
   // Fetch tutorial data based on route params
   useEffect(() => {
     fetchTutorialData();
   }, [domain, technology, tutorialSlug, tutorialId]);
-
-  // Fetch user-specific data when authenticated
-  useEffect(() => {
-    if (isAuthenticated && tutorial) {
-      fetchUserData();
-    }
-  }, [isAuthenticated, tutorial]);
 
   const fetchTutorialData = async () => {
     try {
@@ -185,40 +175,6 @@ const DynamicTutorial = () => {
       setIsLoading(false);
     }
   };
-
-  const fetchUserData = async () => {
-    try {
-      // Check if user has bookmarked this tutorial
-      const bookmarksResponse = await userAPI.getBookmarks();
-      const bookmarks = bookmarksResponse.data || [];
-      const isBookmarked = bookmarks.some(bookmark => 
-        bookmark._id === tutorial._id || bookmark === tutorial._id
-      );
-      setIsBookmarked(isBookmarked);
-    } catch (err) {
-      console.warn('Could not fetch user data:', err);
-    }
-  };
-  
-  // Toggle bookmark
-  const toggleBookmark = async () => {
-    if (!isAuthenticated) {
-      navigate('/login');
-      return;
-    }
-    
-    try {
-      if (isBookmarked) {
-        await userAPI.removeBookmark(tutorial._id);
-      } else {
-        await userAPI.addBookmark(tutorial._id);
-      }
-      setIsBookmarked(!isBookmarked);
-    } catch (err) {
-      console.error('Error toggling bookmark:', err);
-      alert('Failed to update bookmark. Please try again.');
-    }
-  };
   
   // Share tutorial
   const shareContent = () => {
@@ -354,14 +310,6 @@ const DynamicTutorial = () => {
         
         <div className="flex items-center gap-2">
           <button 
-            onClick={toggleBookmark}
-            className={`p-2 rounded-full ${isBookmarked ? 'text-yellow-500 bg-yellow-50' : 'text-gray-500 hover:bg-gray-100'}`}
-            title={isBookmarked ? 'Remove Bookmark' : 'Bookmark this Tutorial'}
-          >
-            <Bookmark size={20} className={isBookmarked ? 'fill-yellow-500' : ''} />
-          </button>
-          
-          <button 
             onClick={shareContent}
             className="p-2 text-gray-500 hover:bg-gray-100 rounded-full"
             title="Share this Tutorial"
@@ -399,7 +347,7 @@ const DynamicTutorial = () => {
             {tutorial.estimatedTime || 30} min
           </span>
           <span className="flex items-center">
-            <BarChart size={16} className="mr-1" />
+            <span className="mr-1">📊</span>
             {tutorial.difficulty?.charAt(0).toUpperCase() + tutorial.difficulty?.slice(1) || 'Beginner'}
           </span>
           {tutorial.author && (
@@ -427,6 +375,7 @@ const DynamicTutorial = () => {
           </div>
         )}
       </div>
+      
       {/* Course Lessons */}
       {lessons.length > 0 && (
         <div className="mt-8 mb-8">

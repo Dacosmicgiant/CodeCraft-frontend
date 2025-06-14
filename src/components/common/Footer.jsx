@@ -37,7 +37,6 @@ const Footer = () => {
           
           {/* Accordion Sections */}
           <div className="border-t border-gray-700">
-            
             <FooterAccordion 
               title="Company" 
               isOpen={expandedSection === 'company'} 
@@ -56,14 +55,14 @@ const Footer = () => {
         
         {/* Desktop Footer */}
         <div className="hidden md:block">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {/* Logo and Description */}
-            <div className="col-span-1">
+          <div className="flex justify-between items-start gap-8">
+            {/* Shubhali's Section (Left) */}
+            <div>
               <Link to="/" className="flex items-center gap-2">
                 <BookOpen className="h-6 w-6 text-white" />
                 <span className="text-xl font-bold text-white">Shubhali's CodeCraft</span>
               </Link>
-              <p className="mt-2 text-sm text-gray-400">
+              <p className="mt-2 text-sm text-gray-400 max-w-sm">
                 Learn to code with interactive tutorials and examples.
                 Master web development, programming, and computer science fundamentals.
               </p>
@@ -75,9 +74,7 @@ const Footer = () => {
               </div>
             </div>
             
-            {/* Links */}
-
-            
+            {/* Company Section (Right) */}
             <div>
               <h3 className="text-white font-medium mb-2">Company</h3>
               <ul className="space-y-2">
@@ -91,9 +88,12 @@ const Footer = () => {
           </div>
         </div>
         
-        <div className="mt-8 pt-6 border-t border-gray-700 flex flex-col md:flex-row justify-between items-center">
-          <p className="text-sm text-gray-400 text-center md:text-left">
-            &copy; {new Date().getFullYear()} Shubhali's CodeCraft. All rights reserved.
+        {/* --- MODIFIED COPYRIGHT SECTION --- */}
+        {/* Changed justify-between to justify-center */}
+        <div className="mt-8 pt-6 border-t border-gray-700 flex flex-col md:flex-row justify-center items-center">
+          {/* Changed text-center md:text-left to just text-center */}
+          <p className="text-sm text-gray-400 text-center">
+            © {new Date().getFullYear()} Shubhali's CodeCraft. All rights reserved.
           </p>
         </div>
       </div>

@@ -130,12 +130,6 @@ const HomePage = () => {
             >
               Browse Tutorials
             </Link>
-            <Link 
-              to="/register" 
-              className={`px-8 sm:px-10 md:px-12 py-3 sm:py-4 text-base sm:text-lg ${COLORS.button.outline} rounded-md text-center font-medium transition-colors duration-200 w-full sm:w-auto`}
-            >
-              Sign Up Free
-            </Link>
           </div>
         </div>
       </section>
@@ -204,12 +198,6 @@ const HomePage = () => {
             Join our community of learners and take the first step toward your programming goals.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center px-4">
-            <Link 
-              to="/register" 
-              className={`px-8 sm:px-10 md:px-12 py-3 sm:py-4 text-base sm:text-lg ${COLORS.background.white} ${COLORS.text.primary} font-medium rounded-md hover:${COLORS.background.tertiary} transition-colors duration-200 w-full sm:w-auto`}
-            >
-              Create Free Account
-            </Link>
             <Link 
               to="/tutorials" 
               className="px-8 sm:px-10 md:px-12 py-3 sm:py-4 text-base sm:text-lg border-2 border-white text-white font-medium rounded-md hover:bg-white hover:bg-opacity-10 transition-colors duration-200 w-full sm:w-auto"
