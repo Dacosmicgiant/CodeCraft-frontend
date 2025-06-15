@@ -3,10 +3,13 @@ import axios from 'axios';
 
 // Update this to point to your backend
 // Better approach - use custom environment variable
-const API_BASE_URL = 'https://codecraft-backend-8fme.onrender.com/api/v1'
-
+const API_BASE_URL = import.meta.env.VITE_API_URL || 
+  (import.meta.env.PROD 
+    ? 'https://codecraft-backend-8fme.onrender.com/api/v1'
+    : 'http://localhost:5001/api/v1'
+  );
 const api = axios.create({
-  baseURL: API_URL,
+  baseURL: API_BASE_URL,
   withCredentials: true, // Important for cookies to work
 });
 
