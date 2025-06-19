@@ -1,4 +1,4 @@
-// src/context/AuthContext.jsx - Cookie-based authentication
+// src/context/AuthContext.jsx - Simplified for current backend
 import { createContext, useState, useEffect, useCallback, useRef } from 'react';
 import { authAPI } from '../services/api';
 
@@ -10,18 +10,16 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
-  // Use ref to track if we've already loaded user to prevent double loading in Strict Mode
   const hasLoadedUser = useRef(false);
   const isLoadingUser = useRef(false);
 
   const loadUser = useCallback(async () => {
-    // Prevent duplicate calls in Strict Mode
     if (isLoadingUser.current || hasLoadedUser.current) {
       console.log('🚫 Skipping loadUser - already loaded or loading');
       return;
     }
     
-    console.log('🔄 loadUser called - starting authentication check');
+    console.log('🔄 loadUser called - checking authentication via cookies');
     isLoadingUser.current = true;
     
     try {
@@ -40,6 +38,7 @@ export const AuthProvider = ({ children }) => {
           
           // Verify with backend using cookies
           try {
+            console.log('🔍 Verifying stored user with backend...');
             const { data } = await authAPI.getProfile();
             if (data) {
               console.log('✅ Backend verification successful');
@@ -47,9 +46,9 @@ export const AuthProvider = ({ children }) => {
               localStorage.setItem('user', JSON.stringify(data));
             }
           } catch (verifyError) {
-            console.warn('⚠️ Backend verification failed:', verifyError);
+            console.warn('⚠️ Backend verification failed:', verifyError.response?.status);
             if (verifyError.response?.status === 401) {
-              // Clear invalid stored data
+              console.log('🧹 Clearing invalid stored data');
               localStorage.removeItem('user');
               setUser(null);
               setIsAuthenticated(false);
@@ -65,6 +64,7 @@ export const AuthProvider = ({ children }) => {
       } else {
         // No stored user, check if we have valid cookies
         try {
+          console.log('🔍 Checking for valid session via cookies...');
           const { data } = await authAPI.getProfile();
           if (data) {
             console.log('✅ Found valid session via cookies');
@@ -83,22 +83,19 @@ export const AuthProvider = ({ children }) => {
       setUser(null);
       setIsAuthenticated(false);
     } finally {
-      console.log('🏁 loadUser completed, setting loading to false');
+      console.log('🏁 loadUser completed');
       setLoading(false);
       hasLoadedUser.current = true;
       isLoadingUser.current = false;
     }
   }, []);
 
-  // Load user data on mount only
   useEffect(() => {
     console.log('🚀 AuthProvider mounted, calling loadUser');
     loadUser();
     
-    // Cleanup function for Strict Mode
     return () => {
       console.log('🧹 AuthProvider cleanup');
-      // Reset refs when component unmounts (Strict Mode)
       hasLoadedUser.current = false;
       isLoadingUser.current = false;
     };
@@ -112,11 +109,11 @@ export const AuthProvider = ({ children }) => {
       const { data } = await authAPI.login(credentials);
       
       if (data) {
-        console.log('✅ Login successful:', data);
-        localStorage.setItem('user', JSON.stringify(data)); // Only for UI persistence
+        console.log('✅ Login successful:', data.username || data.email);
+        localStorage.setItem('user', JSON.stringify(data));
         setUser(data);
         setIsAuthenticated(true);
-        hasLoadedUser.current = true; // Mark as loaded
+        hasLoadedUser.current = true;
         return data;
       }
     } catch (err) {
@@ -133,16 +130,19 @@ export const AuthProvider = ({ children }) => {
     setLoading(true);
     setError(null);
     try {
+      console.log('📝 Attempting registration...');
       const { data } = await authAPI.register(userData);
       
       if (data) {
-        localStorage.setItem('user', JSON.stringify(data)); // Only for UI persistence
+        console.log('✅ Registration successful:', data.username || data.email);
+        localStorage.setItem('user', JSON.stringify(data));
         setUser(data);
         setIsAuthenticated(true);
-        hasLoadedUser.current = true; // Mark as loaded
+        hasLoadedUser.current = true;
         return data;
       }
     } catch (err) {
+      console.error('❌ Registration failed:', err);
       const errorMessage = err.response?.data?.message || 'Registration failed';
       setError(errorMessage);
       throw new Error(errorMessage);
@@ -154,17 +154,17 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     try {
       console.log('🚪 Logging out...');
-      await authAPI.logout(); // This clears the HTTP-only cookie
-      console.log('✅ Backend logout successful');
+      await authAPI.logout();
+      console.log('✅ Backend logout successful - cookie cleared');
     } catch (err) {
       console.error('⚠️ Error during logout API call:', err);
     } finally {
       // Clear local state regardless of API success
-      localStorage.removeItem('user'); // Clear UI persistence
+      localStorage.removeItem('user');
       setUser(null);
       setIsAuthenticated(false);
       setError(null);
-      hasLoadedUser.current = false; // Reset
+      hasLoadedUser.current = false;
       console.log('✅ Local logout complete');
     }
   };
@@ -174,7 +174,7 @@ export const AuthProvider = ({ children }) => {
     
     const updatedUser = { ...user, ...newUserData };
     setUser(updatedUser);
-    localStorage.setItem('user', JSON.stringify(updatedUser)); // Update UI persistence
+    localStorage.setItem('user', JSON.stringify(updatedUser));
   }, [user]);
 
   const hasRole = useCallback((role) => {
@@ -192,7 +192,7 @@ export const AuthProvider = ({ children }) => {
       const { data } = await authAPI.getProfile();
       if (data) {
         setUser(data);
-        localStorage.setItem('user', JSON.stringify(data)); // Update UI persistence
+        localStorage.setItem('user', JSON.stringify(data));
         return data;
       }
     } catch (err) {
