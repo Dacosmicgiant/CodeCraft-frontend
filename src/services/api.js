@@ -2,27 +2,27 @@
 import axios from 'axios';
 
 // Update this to point to your backend
-// Better approach - use custom environment variable
 const API_BASE_URL = import.meta.env.VITE_API_URL || 
   (import.meta.env.PROD 
     ? 'https://codecraft-backend-8fme.onrender.com/api/v1'
     : 'http://localhost:5001/api/v1'
   );
+
 const api = axios.create({
   baseURL: API_BASE_URL,
   withCredentials: true, // Important for cookies to work
+  headers: {
+    'Content-Type': 'application/json',
+  }
 });
 
-// Add a request interceptor
+// Add a request interceptor - REMOVED localStorage token logic since we use cookies
 api.interceptors.request.use(
   (config) => {
     console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
     console.log('📤 Request data:', config.data);
     
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
+    // NO localStorage token logic - cookies are sent automatically
     return config;
   },
   (error) => {
@@ -39,28 +39,18 @@ api.interceptors.response.use(
     return response;
   },
   async (error) => {
-    console.error('❌ API Error:', error);
-    
-    const originalRequest = error.config;
-    
-    // If error is 401 and not already retrying
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
-      
-      try {
-        // Clear auth data and redirect to login
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        window.location.href = '/login';
-      } catch (err) {
-        console.error('Authentication error:', err);
-      }
-    }
+    console.error('❌ API Error:', error.message);
     
     // Better error logging
     if (error.response) {
       console.error('Response status:', error.response.status);
       console.error('Response data:', error.response.data);
+      
+      // Don't automatically redirect on 401 - let AuthContext handle it
+      if (error.response.status === 401) {
+        console.log('🔐 Authentication error - token may be expired');
+        // Let the calling component/context handle the 401 error
+      }
     } else if (error.request) {
       console.error('No response received:', error.request);
     } else {
@@ -106,7 +96,7 @@ export const tutorialAPI = {
   delete: (id) => api.delete(`/tutorials/${id}`),
 };
 
-// User API calls - matches your backend - KEEPING INTACT
+// User API calls - matches your backend
 export const userAPI = {
   updateProfile: (data) => api.put('/users/profile', data),
   getProfile: () => api.get('/users/profile'),
