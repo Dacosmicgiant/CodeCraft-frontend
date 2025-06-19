@@ -1,4 +1,4 @@
-// src/services/api.js
+// src/services/api.js - Complete Final Version (JWT + localStorage)
 import axios from 'axios';
 
 // Update this to point to your backend
@@ -10,19 +10,27 @@ const API_BASE_URL = import.meta.env.VITE_API_URL ||
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  withCredentials: true, // Important for cookies to work
   headers: {
     'Content-Type': 'application/json',
   }
+  // Removed withCredentials - we're using JWT tokens now
 });
 
-// Add a request interceptor - REMOVED localStorage token logic since we use cookies
+// Add a request interceptor to include JWT token
 api.interceptors.request.use(
   (config) => {
     console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
     console.log('📤 Request data:', config.data);
     
-    // NO localStorage token logic - cookies are sent automatically
+    // Get token from localStorage and add to Authorization header
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+      console.log('🔑 Token added to request');
+    } else {
+      console.log('⚠️ No token found in localStorage');
+    }
+    
     return config;
   },
   (error) => {
@@ -31,14 +39,14 @@ api.interceptors.request.use(
   }
 );
 
-// Add a response interceptor
+// Add a response interceptor for error handling
 api.interceptors.response.use(
   (response) => {
     console.log(`✅ API Response: ${response.status} ${response.config.url}`);
     console.log('📥 Response data:', response.data);
     return response;
   },
-  async (error) => {
+  (error) => {
     console.error('❌ API Error:', error.message);
     
     // Better error logging
@@ -46,10 +54,16 @@ api.interceptors.response.use(
       console.error('Response status:', error.response.status);
       console.error('Response data:', error.response.data);
       
-      // Don't automatically redirect on 401 - let AuthContext handle it
+      // Handle authentication errors
       if (error.response.status === 401) {
-        console.log('🔐 Authentication error - token may be expired');
-        // Let the calling component/context handle the 401 error
+        console.log('🔐 Authentication error - removing invalid token');
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        // Optionally redirect to login (but let AuthContext handle this)
+        if (window.location.pathname !== '/login' && window.location.pathname !== '/register') {
+          console.log('🔄 Redirecting to login due to 401 error');
+          window.location.href = '/login';
+        }
       }
     } else if (error.request) {
       console.error('No response received:', error.request);
@@ -61,17 +75,17 @@ api.interceptors.response.use(
   }
 );
 
-// Auth API calls - matches your backend exactly
+// Auth API calls - Updated to handle JWT tokens
 export const authAPI = {
   register: (userData) => api.post('/auth/register', userData),
   login: (credentials) => api.post('/auth/login', credentials),
-  logout: () => api.get('/auth/logout'),
+  logout: () => api.post('/auth/logout'), // Changed to POST for consistency
   getProfile: () => api.get('/auth/me'),
 };
 
 // Domain API calls
 export const domainAPI = {
-  getAll: () => api.get('/domains'),
+  getAll: (params) => api.get('/domains', { params }),
   getById: (id) => api.get(`/domains/${id}`),
   create: (data) => api.post('/domains', data),
   update: (id, data) => api.put(`/domains/${id}`, data),
@@ -87,7 +101,7 @@ export const technologyAPI = {
   delete: (id) => api.delete(`/technologies/${id}`),
 };
 
-// Tutorial API calls - matches your backend structure
+// Tutorial API calls
 export const tutorialAPI = {
   getAll: (params) => api.get('/tutorials', { params }),
   getById: (id) => api.get(`/tutorials/${id}`),
@@ -96,7 +110,7 @@ export const tutorialAPI = {
   delete: (id) => api.delete(`/tutorials/${id}`),
 };
 
-// User API calls - matches your backend
+// User API calls
 export const userAPI = {
   updateProfile: (data) => api.put('/users/profile', data),
   getProfile: () => api.get('/users/profile'),
@@ -198,7 +212,7 @@ export const mediaAPI = {
   }
 };
 
-// Enhanced Lesson API - Updated to use axios instead of fetch for consistency
+// Enhanced Lesson API
 export const lessonAPI = {
   // Create lesson with EditorJS content
   create: async (tutorialId, lessonData) => {
@@ -223,7 +237,7 @@ export const lessonAPI = {
       } else if (error.response?.status === 403) {
         throw new Error('You do not have permission to create lessons.');
       } else if (error.code === 'ECONNREFUSED') {
-        throw new Error('Cannot connect to server. Please ensure the backend is running on port 5001.');
+        throw new Error('Cannot connect to server. Please ensure the backend is running.');
       } else {
         throw new Error(error.response?.data?.message || error.message || 'Failed to create lesson');
       }
